@@ -1,0 +1,32 @@
+{
+    "name": "@quick-job/api",
+    "version": "0.0.1",
+    "private": true,
+    "scripts": {
+        "build": "nest build",
+        "dev": "nest start --watch",
+        "start": "nest start",
+        "start:prod": "node dist/main",
+        "lint": "eslint \"{src,test}/**/*.ts\"",
+        "prisma:generate": "prisma generate",
+        "prisma:migrate": "prisma migrate dev",
+        "prisma:studio": "prisma studio"
+    },
+    "dependencies": {
+        "@nestjs/common": "^11.0.10",
+        "@nestjs/core": "^11.0.10",
+        "@nestjs/platform-express": "^11.0.10",
+        "@prisma/client": "^6.4.1",
+        "reflect-metadata": "^0.2.2",
+        "rxjs": "^7.8.1",
+        "@quick-job/shared": "*"
+    },
+    "devDependencies": {
+        "@nestjs/cli": "^11.0.2",
+        "@nestjs/schematics": "^11.0.0",
+        "@types/express": "^5.0.0",
+        "@types/node": "^22.13.4",
+        "prisma": "^6.4.1",
+        "typescript": "^5.7.3"
+    }
+}
