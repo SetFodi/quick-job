@@ -1,17 +1,19 @@
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { WalletsService } from './wallets.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('wallets')
 export class WalletsController {
     constructor(private readonly walletsService: WalletsService) { }
 
-    @Get(':userId/balance')
-    async getBalance(@Param('userId') userId: string) {
-        return this.walletsService.getBalance(userId);
+    @UseGuards(JwtAuthGuard)
+    @Get('balance')
+    async getBalance(@Request() req: { user: { userId: string } }) {
+        return this.walletsService.getBalance(req.user.userId);
     }
 
-    /** Admin-only endpoint — add auth guard before production */
+    /** Admin-only — will get @Roles('ADMIN') guard later */
     @Post(':userId/deposit')
     async deposit(
         @Param('userId') userId: string,
