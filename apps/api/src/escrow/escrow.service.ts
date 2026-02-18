@@ -11,10 +11,18 @@ import { WalletsService } from '../wallets/wallets.service';
 
 @Injectable()
 export class EscrowService {
+    private readonly platformWalletId: string;
+
     constructor(
         private readonly prisma: PrismaService,
         private readonly walletsService: WalletsService,
-    ) { }
+    ) {
+        const walletId = process.env.PLATFORM_WALLET_ID;
+        if (!walletId) {
+            throw new Error('PLATFORM_WALLET_ID env variable is required');
+        }
+        this.platformWalletId = walletId;
+    }
 
     /**
      * Lock funds for a specific milestone.
@@ -106,6 +114,7 @@ export class EscrowService {
                     tx,
                     clientWallet.id,
                     workerWallet.id,
+                    this.platformWalletId,
                     amount,
                     feeAmount,
                     workerAmount,
@@ -234,6 +243,7 @@ export class EscrowService {
                     tx,
                     clientWallet.id,
                     workerWallet.id,
+                    this.platformWalletId,
                     amount,
                     feeAmount,
                     workerAmount,

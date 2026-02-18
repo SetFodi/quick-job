@@ -100,31 +100,38 @@ export class WalletsService {
     }
 
     /**
-     * Release frozen funds: decrement client frozen_balance,
-     * credit worker available_balance (minus platform fee).
+     * 3-way fund release: client frozen → worker available (95%) + platform available (5%).
+     * Double-entry: every debit has a matching credit. Money never vanishes.
      */
     async releaseFunds(
         tx: Prisma.TransactionClient,
         clientWalletId: string,
         workerWalletId: string,
+        platformWalletId: string,
         amount: Decimal,
         feeAmount: Decimal,
         workerAmount: Decimal,
         milestoneId: string,
     ) {
-        // Decrement client frozen balance
+        // 1. Debit: decrement client frozen balance (full amount leaves escrow)
         await tx.wallet.update({
             where: { id: clientWalletId },
             data: { frozenBalance: { decrement: amount } },
         });
 
-        // Credit worker available balance (amount minus fee)
+        // 2. Credit: worker receives 95%
         await tx.wallet.update({
             where: { id: workerWalletId },
             data: { availableBalance: { increment: workerAmount } },
         });
 
-        // Ledger: RELEASE on client wallet
+        // 3. Credit: platform receives 5% commission
+        await tx.wallet.update({
+            where: { id: platformWalletId },
+            data: { availableBalance: { increment: feeAmount } },
+        });
+
+        // Ledger: RELEASE on client wallet (full amount)
         await tx.transaction.create({
             data: {
                 walletId: clientWalletId,
@@ -135,14 +142,14 @@ export class WalletsService {
             },
         });
 
-        // Ledger: PLATFORM_FEE
+        // Ledger: PLATFORM_FEE on platform wallet (5% credit)
         await tx.transaction.create({
             data: {
-                walletId: clientWalletId,
+                walletId: platformWalletId,
                 milestoneId,
                 type: 'PLATFORM_FEE',
                 amount: feeAmount,
-                referenceNote: `5% platform fee on milestone ${milestoneId}`,
+                referenceNote: `5% commission on milestone ${milestoneId}`,
             },
         });
     }
