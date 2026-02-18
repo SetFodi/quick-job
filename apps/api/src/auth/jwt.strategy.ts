@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy } from 'passport-jwt';
+import { ExtractJwt, Strategy, StrategyOptionsWithoutRequest } from 'passport-jwt';
+import { passportJwtSecret } from 'jwks-rsa';
 
 interface SupabaseJwtPayload {
     sub: string;
@@ -12,16 +13,37 @@ interface SupabaseJwtPayload {
 @Injectable()
 export class SupabaseStrategy extends PassportStrategy(Strategy) {
     constructor() {
-        const secret = process.env.SUPABASE_JWT_SECRET;
-        if (!secret) {
-            throw new Error('SUPABASE_JWT_SECRET env variable is required');
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const anonKey = process.env.SUPABASE_ANON_KEY;
+        const jwtSecret = process.env.SUPABASE_JWT_SECRET;
+
+        if (!supabaseUrl && !jwtSecret) {
+            throw new Error(
+                'Either SUPABASE_URL (for JWKS/ES256) or SUPABASE_JWT_SECRET (for HMAC) must be set',
+            );
         }
 
-        super({
-            jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-            secretOrKey: secret,
-            ignoreExpiration: false,
-        });
+        const opts: StrategyOptionsWithoutRequest = supabaseUrl
+            ? {
+                jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+                secretOrKeyProvider: passportJwtSecret({
+                    jwksUri: `${supabaseUrl}/auth/v1/.well-known/jwks.json`,
+                    cache: true,
+                    rateLimit: true,
+                    jwksRequestsPerMinute: 5,
+                    requestHeaders: { apikey: anonKey || '' },
+                }),
+                ignoreExpiration: false,
+                algorithms: ['ES256', 'HS256'],
+            }
+            : {
+                jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+                secretOrKey: jwtSecret!,
+                ignoreExpiration: false,
+                algorithms: ['HS256'],
+            };
+
+        super(opts);
     }
 
     validate(payload: SupabaseJwtPayload) {
@@ -29,7 +51,6 @@ export class SupabaseStrategy extends PassportStrategy(Strategy) {
             throw new UnauthorizedException('Invalid token audience');
         }
 
-        // Attached to req.user by Passport
         return {
             userId: payload.sub,
             email: payload.email,

@@ -16,7 +16,7 @@ BEGIN
     new.id,
     new.email,
     COALESCE(new.raw_user_meta_data->>'full_name', 'New User'),
-    COALESCE(new.raw_user_meta_data->>'role', 'CLIENT')::"UserRole",
+    COALESCE(new.raw_user_meta_data->>'role', 'CLIENT')::public."UserRole",
     COALESCE(new.raw_user_meta_data->>'language', 'en'),
     now(),
     now()
