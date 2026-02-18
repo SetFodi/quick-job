@@ -93,6 +93,7 @@ model Job {
   clientId    String    @map("client_id") @db.Uuid
   workerId    String?   @map("worker_id") @db.Uuid
   title       String    @db.VarChar(255)
+  category    String    @db.VarChar(100)
   description String    @db.Text
   totalBudget Decimal   @map("total_budget") @db.Decimal(12, 2)
   deadline    DateTime?
