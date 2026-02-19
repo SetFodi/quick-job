@@ -58,7 +58,7 @@ export class EscrowService {
 
                 const amount = new Prisma.Decimal(milestone.amount.toString());
 
-                await this.walletsService.freezeFunds(tx, clientWallet.id, amount, milestoneId);
+                await this.walletsService.freezeFunds(tx, clientWallet.id, amount, milestoneId, milestone.title);
 
                 await tx.milestone.update({
                     where: { id: milestoneId },
@@ -178,6 +178,7 @@ export class EscrowService {
                     feeAmount,
                     workerAmount,
                     milestoneId,
+                    milestone.title,
                 );
 
                 await tx.milestone.update({
@@ -259,7 +260,7 @@ export class EscrowService {
 
                 const amount = new Prisma.Decimal(milestone.amount.toString());
 
-                await this.walletsService.refundFunds(tx, clientWallet.id, amount, milestoneId);
+                await this.walletsService.refundFunds(tx, clientWallet.id, amount, milestoneId, milestone.title);
 
                 await tx.milestone.update({
                     where: { id: milestoneId },
@@ -316,6 +317,7 @@ export class EscrowService {
                     feeAmount,
                     workerAmount,
                     milestoneId,
+                    milestone.title,
                 );
 
                 await tx.milestone.update({

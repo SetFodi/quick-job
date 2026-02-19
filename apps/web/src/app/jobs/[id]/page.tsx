@@ -54,7 +54,11 @@ export default function JobDetailPage() {
             await fetchJob();
         }
         init();
-    }, [fetchJob]);
+
+        const onFocus = () => { fetchJob(); fetchProposals(); };
+        window.addEventListener('focus', onFocus);
+        return () => window.removeEventListener('focus', onFocus);
+    }, [fetchJob, fetchProposals]);
 
     useEffect(() => { if (job && currentUserId) fetchProposals(); }, [job, currentUserId, fetchProposals]);
 

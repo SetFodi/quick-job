@@ -92,6 +92,7 @@ export class WalletsService {
         walletId: string,
         amount: Decimal,
         milestoneId: string,
+        milestoneTitle?: string,
     ) {
         const wallet = await tx.wallet.findUniqueOrThrow({ where: { id: walletId } });
         const available = new Prisma.Decimal(wallet.availableBalance.toString());
@@ -116,7 +117,7 @@ export class WalletsService {
                 milestoneId,
                 type: 'ESCROW_LOCK',
                 amount,
-                referenceNote: `Escrow lock for milestone ${milestoneId}`,
+                referenceNote: `Escrow lock — ${milestoneTitle || milestoneId}`,
             },
         });
     }
@@ -134,55 +135,55 @@ export class WalletsService {
         feeAmount: Decimal,
         workerAmount: Decimal,
         milestoneId: string,
+        milestoneTitle?: string,
     ) {
-        // 1. Debit: decrement client frozen balance (full amount leaves escrow)
+        const label = milestoneTitle || milestoneId;
+
         await tx.wallet.update({
             where: { id: clientWalletId },
             data: { frozenBalance: { decrement: amount } },
         });
 
-        // 2. Credit: worker receives 95%
         await tx.wallet.update({
             where: { id: workerWalletId },
             data: { availableBalance: { increment: workerAmount } },
         });
 
-        // 3. Credit: platform receives 5% commission
         await tx.wallet.update({
             where: { id: platformWalletId },
             data: { availableBalance: { increment: feeAmount } },
         });
 
-        // Ledger: RELEASE on client wallet (full amount)
+        // Ledger: RELEASE on client wallet
         await tx.transaction.create({
             data: {
                 walletId: clientWalletId,
                 milestoneId,
                 type: 'RELEASE',
                 amount,
-                referenceNote: `Release for milestone ${milestoneId}`,
+                referenceNote: `Payment released — ${label}`,
             },
         });
 
-        // Ledger: RELEASE on worker wallet (95% credit — their earnings)
+        // Ledger: RELEASE on worker wallet (95%)
         await tx.transaction.create({
             data: {
                 walletId: workerWalletId,
                 milestoneId,
                 type: 'RELEASE',
                 amount: workerAmount,
-                referenceNote: `Payment received for milestone ${milestoneId}`,
+                referenceNote: `Payment received — ${label}`,
             },
         });
 
-        // Ledger: PLATFORM_FEE on platform wallet (5% credit)
+        // Ledger: PLATFORM_FEE (5%)
         await tx.transaction.create({
             data: {
                 walletId: platformWalletId,
                 milestoneId,
                 type: 'PLATFORM_FEE',
                 amount: feeAmount,
-                referenceNote: `5% commission on milestone ${milestoneId}`,
+                referenceNote: `5% commission — ${label}`,
             },
         });
     }
@@ -196,6 +197,7 @@ export class WalletsService {
         walletId: string,
         amount: Decimal,
         milestoneId: string,
+        milestoneTitle?: string,
     ) {
         await tx.wallet.update({
             where: { id: walletId },
@@ -211,7 +213,7 @@ export class WalletsService {
                 milestoneId,
                 type: 'REFUND',
                 amount,
-                referenceNote: `Refund for disputed milestone ${milestoneId}`,
+                referenceNote: `Refund — ${milestoneTitle || milestoneId}`,
             },
         });
     }

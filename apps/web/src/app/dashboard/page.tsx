@@ -72,27 +72,31 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        async function fetchData() {
-            try {
-                const { data: { session } } = await getSupabase().auth.getSession();
-                if (session?.user?.id) setCurrentUserId(session.user.id);
+    const fetchAll = async () => {
+        try {
+            const { data: { session } } = await getSupabase().auth.getSession();
+            if (session?.user?.id) setCurrentUserId(session.user.id);
 
-                const [balanceData, txData, jobsData] = await Promise.all([
-                    api.wallets.getBalance(),
-                    api.wallets.getTransactions(),
-                    api.jobs.getMine(),
-                ]);
-                setBalance(balanceData);
-                setTransactions(txData);
-                setMyJobs(jobsData);
-            } catch (err: any) {
-                setError(err.message || 'Failed to fetch data');
-            } finally {
-                setLoading(false);
-            }
+            const [balanceData, txData, jobsData] = await Promise.all([
+                api.wallets.getBalance(),
+                api.wallets.getTransactions(),
+                api.jobs.getMine(),
+            ]);
+            setBalance(balanceData);
+            setTransactions(txData);
+            setMyJobs(jobsData);
+        } catch (err: any) {
+            setError(err.message || 'Failed to fetch data');
+        } finally {
+            setLoading(false);
         }
-        fetchData();
+    };
+
+    useEffect(() => {
+        fetchAll();
+        const onFocus = () => fetchAll();
+        window.addEventListener('focus', onFocus);
+        return () => window.removeEventListener('focus', onFocus);
     }, []);
 
     const STATUS_LABELS: Record<string, string> = {
