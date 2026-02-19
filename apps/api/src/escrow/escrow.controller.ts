@@ -44,12 +44,14 @@ export class EscrowController {
     }
 
     /** Admin resolves dispute: refund to client */
+    @UseGuards(JwtAuthGuard)
     @Post('milestones/:milestoneId/resolve-refund')
     async resolveRefund(@Param('milestoneId') milestoneId: string) {
         return this.escrowService.resolveDisputeRefund(milestoneId);
     }
 
     /** Admin resolves dispute: release to worker */
+    @UseGuards(JwtAuthGuard)
     @Post('milestones/:milestoneId/resolve-release')
     async resolveRelease(@Param('milestoneId') milestoneId: string) {
         return this.escrowService.resolveDisputeRelease(milestoneId);

@@ -20,6 +20,7 @@ export class WalletsController {
     }
 
     /** Admin-only — will get @Roles('ADMIN') guard later */
+    @UseGuards(JwtAuthGuard)
     @Post(':userId/deposit')
     async deposit(
         @Param('userId') userId: string,
