@@ -35,13 +35,22 @@ export default function JobDetailPage() {
     const [proposedAmount, setProposedAmount] = useState('');
     const [coverLetter, setCoverLetter] = useState('');
     const [proposalSubmitting, setProposalSubmitting] = useState(false);
+    const getErrorMessage = (message: string | undefined, ruFallback: string, enFallback: string) => {
+        if (!message) {
+            return lang === 'ru' ? ruFallback : enFallback;
+        }
+        if (lang === 'ru' && /[A-Za-z]/.test(message) && !/[А-Яа-я]/.test(message)) {
+            return ruFallback;
+        }
+        return message;
+    };
 
     function startLoading(id: string) { setActionLoading((p) => new Set(p).add(id)); }
     function stopLoading(id: string) { setActionLoading((p) => { const n = new Set(p); n.delete(id); return n; }); }
 
     const fetchJob = useCallback(async () => {
-        try { setJob(await api.jobs.getOne(jobId)); } catch (err: any) { toast.error(err.message); } finally { setLoading(false); }
-    }, [jobId]);
+        try { setJob(await api.jobs.getOne(jobId)); } catch (err: any) { toast.error(getErrorMessage(err?.message, 'Не удалось загрузить заказ', 'Failed to load job')); } finally { setLoading(false); }
+    }, [jobId, lang]);
 
     const fetchProposals = useCallback(async () => {
         try { setProposals(await api.proposals.getForJob(jobId)); } catch { }
@@ -49,18 +58,22 @@ export default function JobDetailPage() {
 
     useEffect(() => {
         async function init() {
-            const { data: { session } } = await getSupabase().auth.getSession();
-            if (session?.user?.id) setCurrentUserId(session.user.id);
-            await fetchJob();
+            const [sessionResult] = await Promise.all([
+                getSupabase().auth.getSession(),
+                fetchJob(),
+            ]);
+            const { data: { session } } = sessionResult;
+            if (session?.user?.id) {
+                setCurrentUserId(session.user.id);
+            }
+            void fetchProposals();
         }
         init();
 
-        const onFocus = () => { fetchJob(); fetchProposals(); };
+        const onFocus = () => { void fetchJob(); void fetchProposals(); };
         window.addEventListener('focus', onFocus);
         return () => window.removeEventListener('focus', onFocus);
     }, [fetchJob, fetchProposals]);
-
-    useEffect(() => { if (job && currentUserId) fetchProposals(); }, [job, currentUserId, fetchProposals]);
 
     const isClient = currentUserId === job?.clientId;
     const isWorker = currentUserId === job?.workerId;
@@ -74,13 +87,13 @@ export default function JobDetailPage() {
             toast.success(lang === 'ru' ? 'Заявка отправлена! 🎯' : 'Proposal sent! 🎯');
             setProposedAmount(''); setCoverLetter('');
             await fetchProposals();
-        } catch (err: any) { toast.error(err.message); } finally { setProposalSubmitting(false); }
+        } catch (err: any) { toast.error(getErrorMessage(err?.message, 'Не удалось отправить заявку', 'Failed to send proposal')); } finally { setProposalSubmitting(false); }
     }
 
-    async function handleAccept(id: string) { startLoading(id); try { await api.proposals.accept(id); toast.success(lang === 'ru' ? 'Заявка принята! 🤝' : 'Accepted! 🤝'); await fetchJob(); await fetchProposals(); } catch (err: any) { toast.error(err.message); } finally { stopLoading(id); } }
-    async function handleReject(id: string) { startLoading(id); try { await api.proposals.reject(id); toast.success(lang === 'ru' ? 'Отклонено' : 'Rejected'); await fetchProposals(); } catch (err: any) { toast.error(err.message); } finally { stopLoading(id); } }
-    async function handleFund(id: string) { startLoading(id); try { await api.escrow.lockFunds(id); toast.success(lang === 'ru' ? 'Этап профинансирован! 🔒' : 'Funded! 🔒'); await fetchJob(); } catch (err: any) { toast.error(err.message); } finally { stopLoading(id); } }
-    async function handleSubmitWork(id: string) { startLoading(id); try { await api.escrow.submitWork(id); toast.success(lang === 'ru' ? 'Работа сдана! 📤' : 'Submitted! 📤'); await fetchJob(); } catch (err: any) { toast.error(err.message); } finally { stopLoading(id); } }
+    async function handleAccept(id: string) { startLoading(id); try { await api.proposals.accept(id); toast.success(lang === 'ru' ? 'Заявка принята! 🤝' : 'Accepted! 🤝'); await fetchJob(); await fetchProposals(); } catch (err: any) { toast.error(getErrorMessage(err?.message, 'Не удалось принять заявку', 'Failed to accept proposal')); } finally { stopLoading(id); } }
+    async function handleReject(id: string) { startLoading(id); try { await api.proposals.reject(id); toast.success(lang === 'ru' ? 'Отклонено' : 'Rejected'); await fetchProposals(); } catch (err: any) { toast.error(getErrorMessage(err?.message, 'Не удалось отклонить заявку', 'Failed to reject proposal')); } finally { stopLoading(id); } }
+    async function handleFund(id: string) { startLoading(id); try { await api.escrow.lockFunds(id); toast.success(lang === 'ru' ? 'Этап профинансирован! 🔒' : 'Funded! 🔒'); await fetchJob(); } catch (err: any) { toast.error(getErrorMessage(err?.message, 'Не удалось профинансировать этап', 'Failed to fund milestone')); } finally { stopLoading(id); } }
+    async function handleSubmitWork(id: string) { startLoading(id); try { await api.escrow.submitWork(id); toast.success(lang === 'ru' ? 'Работа сдана! 📤' : 'Submitted! 📤'); await fetchJob(); } catch (err: any) { toast.error(getErrorMessage(err?.message, 'Не удалось отправить работу', 'Failed to submit work')); } finally { stopLoading(id); } }
     async function handleRelease(id: string) {
         startLoading(id);
         try {
@@ -88,7 +101,7 @@ export default function JobDetailPage() {
             toast.success(lang === 'ru' ? `Оплачено! 💸 Исполнитель: $${r.workerReceived}, Комиссия: $${r.platformFee}` : `Released! 💸 Worker: $${r.workerReceived}, Fee: $${r.platformFee}`);
             if (r.jobCompleted) toast.success(lang === 'ru' ? '🎉 Заказ завершён!' : '🎉 Job completed!');
             await fetchJob();
-        } catch (err: any) { toast.error(err.message); } finally { stopLoading(id); }
+        } catch (err: any) { toast.error(getErrorMessage(err?.message, 'Не удалось выполнить выплату', 'Failed to release funds')); } finally { stopLoading(id); }
     }
 
     const STATUS: Record<string, { color: string; bg: string; label: string }> = {
@@ -100,6 +113,18 @@ export default function JobDetailPage() {
         IN_PROGRESS: { color: 'text-blue-400', bg: 'bg-blue-500/10', label: t('status.inProgress') },
         ASSIGNED: { color: 'text-violet-400', bg: 'bg-violet-500/10', label: t('status.assigned') },
         OPEN: { color: 'text-gold', bg: 'bg-gold/10', label: t('status.open') },
+    };
+    const CATEGORY_LABELS: Record<string, string> = {
+        construction: t('jobsList.construction'),
+        digital: t('jobsList.digital'),
+        household: t('jobsList.household'),
+        other: t('jobsList.other'),
+    };
+    const PROPOSAL_STATUS_LABELS: Record<string, string> = {
+        PENDING: lang === 'ru' ? 'Ожидает' : 'Pending',
+        ACCEPTED: lang === 'ru' ? 'Принята' : 'Accepted',
+        REJECTED: lang === 'ru' ? 'Отклонена' : 'Rejected',
+        WITHDRAWN: lang === 'ru' ? 'Отозвана' : 'Withdrawn',
     };
 
     if (loading) return <div className="min-h-screen bg-[#09090b] flex items-center justify-center"><Loader2 className="animate-spin text-gold" size={40} /></div>;
@@ -128,7 +153,7 @@ export default function JobDetailPage() {
                             <p className="text-zinc-400 leading-relaxed">{job.description}</p>
                             <div className="flex flex-wrap items-center gap-3 pt-2">
                                 <span className="text-xs text-zinc-600">{t('jobDetail.postedBy')} {job.client.fullName}</span>
-                                <span className="text-xs text-zinc-700 capitalize px-2 py-0.5 bg-white/[0.03] rounded">{job.category}</span>
+                                <span className="text-xs text-zinc-700 capitalize px-2 py-0.5 bg-white/[0.03] rounded">{CATEGORY_LABELS[job.category.toLowerCase()] || job.category}</span>
                                 {job.deadline && <span className="text-xs text-zinc-600 flex items-center gap-1"><Clock size={11} />{new Date(job.deadline).toLocaleDateString()}</span>}
                             </div>
                         </div>
@@ -150,7 +175,7 @@ export default function JobDetailPage() {
                                             await api.jobs.delete(jobId);
                                             toast.success(lang === 'ru' ? 'Заказ удалён' : 'Job deleted');
                                             router.push('/jobs');
-                                        } catch (err: any) { toast.error(err.message); }
+                                        } catch (err: any) { toast.error(getErrorMessage(err?.message, 'Не удалось удалить заказ', 'Failed to delete job')); }
                                     }}
                                     className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-red-400 bg-red-500/10 hover:bg-red-500/20 rounded-xl transition-all"
                                 >
@@ -198,7 +223,7 @@ export default function JobDetailPage() {
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-2 mb-1">
                                                         <span className="font-semibold">{p.worker.fullName}</span>
-                                                        <span className={`text-xs px-2 py-0.5 rounded-full ${p.status === 'PENDING' ? 'bg-amber-500/10 text-amber-400' : p.status === 'ACCEPTED' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>{p.status}</span>
+                                                        <span className={`text-xs px-2 py-0.5 rounded-full ${p.status === 'PENDING' ? 'bg-amber-500/10 text-amber-400' : p.status === 'ACCEPTED' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>{PROPOSAL_STATUS_LABELS[p.status] || p.status}</span>
                                                     </div>
                                                     {p.coverLetter && <p className="text-zinc-500 text-sm">{p.coverLetter}</p>}
                                                 </div>

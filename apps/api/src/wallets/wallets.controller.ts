@@ -2,6 +2,8 @@ import { Controller, Get, Post, Body, Param, UseGuards, Request } from '@nestjs/
 import { Prisma } from '@prisma/client';
 import { WalletsService } from './wallets.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AdminOnlyGuard } from '../auth/admin-only.guard';
+import { AdminOnly } from '../auth/admin-only.decorator';
 
 @Controller('wallets')
 export class WalletsController {
@@ -19,8 +21,8 @@ export class WalletsController {
         return this.walletsService.getTransactions(req.user.userId);
     }
 
-    /** Admin-only — will get @Roles('ADMIN') guard later */
-    @UseGuards(JwtAuthGuard)
+    @AdminOnly()
+    @UseGuards(JwtAuthGuard, AdminOnlyGuard)
     @Post(':userId/deposit')
     async deposit(
         @Param('userId') userId: string,

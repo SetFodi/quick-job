@@ -18,6 +18,12 @@ function LoginForm() {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const getAuthError = (message: string) => {
+        if (lang === 'ru' && /[A-Za-z]/.test(message) && !/[А-Яа-я]/.test(message)) {
+            return 'Не удалось войти. Проверьте email и пароль.';
+        }
+        return message;
+    };
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -30,7 +36,7 @@ function LoginForm() {
         });
 
         if (authError) {
-            setError(authError.message);
+            setError(getAuthError(authError.message));
             setLoading(false);
             return;
         }
@@ -129,7 +135,7 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
-    const { t } = useLang();
+    const { t, lang } = useLang();
 
     return (
         <>
@@ -142,7 +148,7 @@ export default function LoginPage() {
 
             <div className="bg-surface border border-white/[0.04] rounded-2xl p-8 shadow-2xl animate-in" style={{ animationDelay: '0.1s' }}>
                 <h2 className="font-display text-xl font-semibold text-white mb-6">{t('auth.welcomeBack')}</h2>
-                <Suspense fallback={<div className="text-zinc-600 text-center py-4">Loading...</div>}>
+                <Suspense fallback={<div className="text-zinc-600 text-center py-4">{lang === 'ru' ? 'Загрузка...' : 'Loading...'}</div>}>
                     <LoginForm />
                 </Suspense>
             </div>

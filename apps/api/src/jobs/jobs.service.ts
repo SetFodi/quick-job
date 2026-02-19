@@ -59,6 +59,7 @@ export class JobsService {
                 milestones: { orderBy: { order: 'asc' } },
                 client: { select: { fullName: true } },
                 worker: { select: { fullName: true } },
+                _count: { select: { proposals: true } },
             },
         });
     }

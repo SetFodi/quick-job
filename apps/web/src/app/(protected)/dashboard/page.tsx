@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { api } from '@/lib/api-client';
+import { useCallback, useEffect, useState } from 'react';
+import { api, getCacheEpoch } from '@/lib/api-client';
 import { getSupabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { useLang } from '@/lib/i18n';
 import {
     Wallet, ArrowUpRight, Clock, CheckCircle2, ArrowDownLeft,
-    Shield, Briefcase, Plus,
+    Shield, Briefcase,
 } from 'lucide-react';
 
 type Transaction = {
@@ -31,7 +31,26 @@ type MyJob = {
     client: { fullName: string };
     worker: { fullName: string } | null;
     milestones: Milestone[];
+    _count?: { proposals: number };
 };
+
+type DashboardSnapshot = {
+    balance: { available: string; frozen: string } | null;
+    transactions: Transaction[];
+    myJobs: MyJob[];
+    currentUserId: string | null;
+    updatedAt: number;
+    epoch: number;
+};
+
+const DASHBOARD_CACHE_TTL_MS = 30_000;
+let dashboardSnapshot: DashboardSnapshot | null = null;
+
+function validSnapshot() {
+    return dashboardSnapshot && dashboardSnapshot.epoch === getCacheEpoch()
+        ? dashboardSnapshot
+        : null;
+}
 
 const TX_ICONS: Record<string, { icon: typeof ArrowUpRight; color: string; sign: string }> = {
     DEPOSIT: { icon: ArrowDownLeft, color: 'text-emerald-400', sign: '+' },
@@ -49,84 +68,150 @@ const STATUS_COLORS: Record<string, { color: string; bg: string }> = {
     DISPUTED: { color: 'text-red-400', bg: 'bg-red-500/10' },
 };
 
-function formatTimeAgo(dateString: string): string {
+function formatTimeAgo(dateString: string, lang: 'ru' | 'en'): string {
     const now = new Date();
     const then = new Date(dateString);
     const diff = Math.floor((now.getTime() - then.getTime()) / 1000);
-    if (diff < 60) return 'just now';
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    return `${Math.floor(diff / 86400)}d ago`;
-}
-
-function formatTxType(type: string): string {
-    return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    if (diff < 60) return lang === 'ru' ? 'только что' : 'just now';
+    if (diff < 3600) {
+        const minutes = Math.floor(diff / 60);
+        return lang === 'ru' ? `${minutes} мин назад` : `${minutes}m ago`;
+    }
+    if (diff < 86400) {
+        const hours = Math.floor(diff / 3600);
+        return lang === 'ru' ? `${hours} ч назад` : `${hours}h ago`;
+    }
+    const days = Math.floor(diff / 86400);
+    return lang === 'ru' ? `${days} дн назад` : `${days}d ago`;
 }
 
 export default function DashboardPage() {
-    const { t, lang, toggle } = useLang();
-    const [balance, setBalance] = useState<{ available: string; frozen: string } | null>(null);
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [myJobs, setMyJobs] = useState<MyJob[]>([]);
-    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-    const [loading, setLoading] = useState(true);
+    const { t, lang } = useLang();
+    const snap = validSnapshot();
+    const [balance, setBalance] = useState<{ available: string; frozen: string } | null>(
+        snap?.balance ?? null,
+    );
+    const [transactions, setTransactions] = useState<Transaction[]>(
+        snap?.transactions ?? [],
+    );
+    const [myJobs, setMyJobs] = useState<MyJob[]>(
+        snap?.myJobs ?? [],
+    );
+    const [currentUserId, setCurrentUserId] = useState<string | null>(
+        snap?.currentUserId ?? null,
+    );
+    const [loading, setLoading] = useState(!snap);
     const [error, setError] = useState<string | null>(null);
+    const getErrorMessage = (message: string | undefined, ruFallback: string, enFallback: string) => {
+        if (!message) {
+            return lang === 'ru' ? ruFallback : enFallback;
+        }
+        if (lang === 'ru' && /[A-Za-z]/.test(message) && !/[А-Яа-я]/.test(message)) {
+            return ruFallback;
+        }
+        return message;
+    };
 
-    const fetchAll = async () => {
+    const readReasonMessage = (reason: unknown) => {
+        if (reason instanceof Error) {
+            return reason.message;
+        }
+        if (reason && typeof reason === 'object' && 'message' in reason) {
+            const message = (reason as { message?: unknown }).message;
+            if (typeof message === 'string') {
+                return message;
+            }
+        }
+        return '';
+    };
+
+    const fetchAll = useCallback(async (background = false) => {
+        if (!background) {
+            setLoading(true);
+        }
+
         try {
             const { data: { session } } = await getSupabase().auth.getSession();
-            if (session?.user?.id) setCurrentUserId(session.user.id);
+            const nextUserId = session?.user?.id ?? null;
+            setCurrentUserId(nextUserId);
 
-            const [balanceData, txData, jobsData] = await Promise.all([
+            const [balanceResult, txResult, jobsResult] = await Promise.allSettled([
                 api.wallets.getBalance(),
                 api.wallets.getTransactions(),
                 api.jobs.getMine(),
             ]);
-            setBalance(balanceData);
-            setTransactions(txData);
-            setMyJobs(jobsData);
+
+            const nextBalance = balanceResult.status === 'fulfilled'
+                ? balanceResult.value
+                : { available: '0.00', frozen: '0.00' };
+            const nextTransactions = txResult.status === 'fulfilled' ? txResult.value : [];
+            const nextJobs = jobsResult.status === 'fulfilled' ? jobsResult.value : [];
+
+            const reasons = [balanceResult, txResult, jobsResult]
+                .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+                .map((result) => readReasonMessage(result.reason))
+                .filter(Boolean);
+            const hasRealFailure = reasons.some((message) => !/wallet not found/i.test(message));
+
+            dashboardSnapshot = {
+                balance: nextBalance,
+                transactions: nextTransactions,
+                myJobs: nextJobs,
+                currentUserId: nextUserId,
+                updatedAt: Date.now(),
+                epoch: getCacheEpoch(),
+            };
+
+            setBalance(nextBalance);
+            setTransactions(nextTransactions);
+            setMyJobs(nextJobs);
+            setError(hasRealFailure ? (lang === 'ru' ? 'Часть данных временно недоступна' : 'Some data is temporarily unavailable') : null);
         } catch (err: any) {
-            setError(err.message || 'Failed to fetch data');
+            setError(getErrorMessage(err?.message, 'Не удалось загрузить данные', 'Failed to fetch data'));
         } finally {
-            setLoading(false);
+            if (!background) {
+                setLoading(false);
+            }
         }
-    };
+    }, [lang]);
 
     useEffect(() => {
-        fetchAll();
-        const onFocus = () => fetchAll();
+        const cached = validSnapshot();
+        const shouldBackgroundRefresh = !!cached
+            && Date.now() - cached.updatedAt < DASHBOARD_CACHE_TTL_MS;
+
+        void fetchAll(shouldBackgroundRefresh || !!cached);
+        const onFocus = () => void fetchAll(true);
         window.addEventListener('focus', onFocus);
         return () => window.removeEventListener('focus', onFocus);
-    }, []);
+    }, [fetchAll]);
 
     const STATUS_LABELS: Record<string, string> = {
         OPEN: t('status.open'), ASSIGNED: t('status.assigned'),
         IN_PROGRESS: t('status.inProgress'), COMPLETED: t('status.completed'),
         DISPUTED: t('status.disputed'),
     };
+    const CATEGORY_LABELS: Record<string, string> = {
+        construction: t('jobsList.construction'),
+        digital: t('jobsList.digital'),
+        household: t('jobsList.household'),
+        other: t('jobsList.other'),
+    };
+    const TX_LABELS: Record<string, string> = {
+        DEPOSIT: lang === 'ru' ? 'Пополнение' : 'Deposit',
+        ESCROW_LOCK: lang === 'ru' ? 'Блокировка эскроу' : 'Escrow Lock',
+        RELEASE: lang === 'ru' ? 'Выплата' : 'Release',
+        PLATFORM_FEE: lang === 'ru' ? 'Комиссия платформы' : 'Platform Fee',
+        REFUND: lang === 'ru' ? 'Возврат' : 'Refund',
+    };
 
     return (
         <div className="min-h-screen bg-[#09090b] text-white p-6 md:p-12">
             <div className="max-w-6xl mx-auto space-y-8">
                 {/* Header */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-in">
-                    <div>
-                        <h1 className="font-display text-3xl font-bold tracking-tight">{t('dash.title')}</h1>
-                        <p className="text-zinc-500 mt-1">{t('dash.subtitle')}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <button onClick={toggle}
-                            className="px-3 py-1.5 text-xs font-bold border border-white/[0.06] rounded-lg bg-white/[0.02] hover:bg-white/[0.05] transition-all text-zinc-500 uppercase tracking-widest">
-                            {lang === 'ru' ? 'EN' : 'RU'}
-                        </button>
-                        <Link href="/jobs" className="px-4 py-2 text-sm text-zinc-400 hover:text-white transition-colors">
-                            {t('nav.browseJobs')}
-                        </Link>
-                        <Link href="/jobs/new"
-                            className="px-5 py-2.5 bg-gold text-black font-bold rounded-xl hover:bg-gold-dim transition-all active:scale-95 text-sm flex items-center gap-2">
-                            <Plus size={16} />{t('nav.postJob')}
-                        </Link>
-                    </div>
+                <div className="animate-in">
+                    <h1 className="font-display text-3xl font-bold tracking-tight">{t('dash.title')}</h1>
+                    <p className="text-zinc-500 mt-1">{t('dash.subtitle')}</p>
                 </div>
 
                 {/* Metrics */}
@@ -167,11 +252,11 @@ export default function DashboardPage() {
                         </div>
                     </div>
 
-                    <div className="bg-gradient-to-br from-gold/[0.08] to-amber-700/[0.04] border border-gold/[0.08] p-6 rounded-2xl group cursor-pointer hover:shadow-[0_0_40px_rgba(245,158,11,0.08)] transition-all animate-in" style={{ animationDelay: '0.2s' }}>
+                    <Link href="/dashboard/deposit" className="bg-gradient-to-br from-gold/[0.08] to-amber-700/[0.04] border border-gold/[0.08] p-6 rounded-2xl group cursor-pointer hover:shadow-[0_0_40px_rgba(245,158,11,0.08)] transition-all animate-in block" style={{ animationDelay: '0.2s' }}>
                         <h3 className="font-display text-lg font-bold mb-2">{t('dash.secureTitle')}</h3>
                         <p className="text-zinc-400 text-sm leading-relaxed mb-6">{t('dash.secureDesc')}</p>
                         <div className="flex items-center gap-2 font-semibold text-gold">{t('dash.depositFunds')}</div>
-                    </div>
+                    </Link>
                 </div>
 
                 {/* My Jobs */}
@@ -221,7 +306,12 @@ export default function DashboardPage() {
                                                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${isMyClient ? 'bg-gold/10 text-gold' : 'bg-blue-500/10 text-blue-400'}`}>
                                                         {isMyClient ? t('dash.asClient') : t('dash.asWorker')}
                                                     </span>
-                                                    <span className="text-xs text-zinc-700 capitalize">{job.category}</span>
+                                                    <span className="text-xs text-zinc-700 capitalize">{CATEGORY_LABELS[job.category.toLowerCase()] || job.category}</span>
+                                                    {isMyClient && job.status === 'OPEN' && (job._count?.proposals ?? 0) > 0 && (
+                                                        <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-violet-500/10 text-violet-400">
+                                                            {job._count!.proposals} {lang === 'ru' ? (job._count!.proposals === 1 ? 'заявка' : 'заявок') : (job._count!.proposals === 1 ? 'proposal' : 'proposals')}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div className="flex flex-col items-end gap-1 shrink-0 ml-3">
@@ -285,15 +375,15 @@ export default function DashboardPage() {
                                                 <Icon size={20} className={config.color} />
                                             </div>
                                             <div>
-                                                <div className="font-semibold">{formatTxType(tx.type)}</div>
-                                                <div className="text-zinc-600 text-sm">{tx.referenceNote || `Transaction ${tx.id.slice(0, 8)}`}</div>
+                                                <div className="font-semibold">{TX_LABELS[tx.type] || tx.type}</div>
+                                                <div className="text-zinc-600 text-sm">{tx.referenceNote || (lang === 'ru' ? `Транзакция ${tx.id.slice(0, 8)}` : `Transaction ${tx.id.slice(0, 8)}`)}</div>
                                             </div>
                                         </div>
                                         <div className="text-right">
                                             <div className={`font-bold ${config.sign === '+' ? 'text-emerald-400' : 'text-red-400'}`}>
                                                 {config.sign}${tx.amount}
                                             </div>
-                                            <div className="text-xs text-zinc-700">{formatTimeAgo(tx.createdAt)}</div>
+                                            <div className="text-xs text-zinc-700">{formatTimeAgo(tx.createdAt, lang)}</div>
                                         </div>
                                     </div>
                                 );

@@ -7,7 +7,7 @@ import { useLang } from '@/lib/i18n';
 import { toast } from 'sonner';
 import { ArrowLeft, Loader2, Plus, X, CheckCircle2, AlertTriangle } from 'lucide-react';
 
-const CATEGORIES = ['Construction', 'Digital', 'Household', 'Other'];
+const CATEGORIES = ['Construction', 'Digital', 'Household', 'Other'] as const;
 
 export default function CreateJobPage() {
     const router = useRouter();
@@ -19,6 +19,15 @@ export default function CreateJobPage() {
     const [deadline, setDeadline] = useState('');
     const [milestones, setMilestones] = useState([{ title: '', amount: '' }]);
     const [submitting, setSubmitting] = useState(false);
+    const getErrorMessage = (message: string | undefined, ruFallback: string, enFallback: string) => {
+        if (!message) {
+            return lang === 'ru' ? ruFallback : enFallback;
+        }
+        if (lang === 'ru' && /[A-Za-z]/.test(message) && !/[А-Яа-я]/.test(message)) {
+            return ruFallback;
+        }
+        return message;
+    };
 
     function addMilestone() { setMilestones([...milestones, { title: '', amount: '' }]); }
     function removeMilestone(i: number) { setMilestones(milestones.filter((_, idx) => idx !== i)); }
@@ -44,7 +53,7 @@ export default function CreateJobPage() {
             toast.success(lang === 'ru' ? 'Заказ создан! 🎯' : 'Job posted! 🎯');
             router.push(`/jobs/${job.id}`);
         } catch (err: any) {
-            toast.error(err.message || 'Failed');
+            toast.error(getErrorMessage(err?.message, 'Не удалось создать заказ', 'Failed'));
         } finally {
             setSubmitting(false);
         }
@@ -79,7 +88,10 @@ export default function CreateJobPage() {
                             <label className="block text-sm font-medium text-zinc-400 mb-1.5">{t('createJob.category')}</label>
                             <select value={category} onChange={(e) => setCategory(e.target.value)}
                                 className={`${inputStyle} appearance-none`}>
-                                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                {CATEGORIES.map((c) => {
+                                    const key = c.toLowerCase() as 'construction' | 'digital' | 'household' | 'other';
+                                    return <option key={c} value={c}>{t(`jobsList.${key}`)}</option>;
+                                })}
                             </select>
                         </div>
                     </div>

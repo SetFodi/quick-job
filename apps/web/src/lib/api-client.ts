@@ -1,14 +1,52 @@
 import { getSupabase } from './supabase';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const TOKEN_CACHE_MS = 15_000;
+
+let cachedAccessToken: string | null = null;
+let cachedTokenAt = 0;
+let tokenRequest: Promise<string | null> | null = null;
+
+let cacheEpoch = 0;
+export function getCacheEpoch() { return cacheEpoch; }
+
+export function clearApiAuthCache() {
+    cachedAccessToken = null;
+    cachedTokenAt = 0;
+    tokenRequest = null;
+    cacheEpoch++;
+}
+
+async function getAccessToken() {
+    const now = Date.now();
+    if (cachedAccessToken && cachedTokenAt && now - cachedTokenAt < TOKEN_CACHE_MS) {
+        return cachedAccessToken;
+    }
+
+    if (tokenRequest) {
+        return tokenRequest;
+    }
+
+    tokenRequest = getSupabase()
+        .auth.getSession()
+        .then(({ data: { session } }) => {
+            cachedAccessToken = session?.access_token ?? null;
+            cachedTokenAt = cachedAccessToken ? Date.now() : 0;
+            return cachedAccessToken;
+        })
+        .finally(() => {
+            tokenRequest = null;
+        });
+
+    return tokenRequest;
+}
 
 async function getAuthHeaders() {
-    const supabase = getSupabase();
-    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken = await getAccessToken();
 
     return {
         'Content-Type': 'application/json',
-        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     };
 }
 
@@ -70,7 +108,8 @@ export const api = {
     wallets: {
         getBalance: () => api.get('/wallets/balance'),
         getTransactions: () => api.get('/wallets/transactions'),
-        deposit: (userId: string, amount: string) => api.post(`/wallets/${userId}/deposit`, { amount }),
+        deposit: (userId: string, amount: string, referenceNote: string) =>
+            api.post(`/wallets/${userId}/deposit`, { amount, referenceNote }),
     },
 
     jobs: {
@@ -93,5 +132,10 @@ export const api = {
         lockFunds: (milestoneId: string) => api.post(`/escrow/milestones/${milestoneId}/lock`),
         submitWork: (milestoneId: string) => api.post(`/escrow/milestones/${milestoneId}/submit`),
         releaseFunds: (milestoneId: string) => api.post(`/escrow/milestones/${milestoneId}/release`),
+    },
+
+    users: {
+        getMe: () => api.get('/users/me'),
+        getAll: () => api.get('/users'),
     },
 };

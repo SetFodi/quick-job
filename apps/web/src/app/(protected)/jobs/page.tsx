@@ -44,6 +44,7 @@ export default function JobsPage() {
         household: t('jobsList.household'),
         other: t('jobsList.other'),
     };
+    const categoryLabelFromValue = (value: string) => catLabels[value.toLowerCase()] || value;
 
     const filtered = jobs.filter((job) => {
         const matchCat = activeCategory === 'all' || job.category.toLowerCase() === activeCategory;
@@ -127,7 +128,7 @@ export default function JobsPage() {
                                         {job.title}
                                     </h3>
                                     <span className="text-xs text-zinc-700 capitalize px-2 py-0.5 bg-white/[0.03] rounded shrink-0 ml-2">
-                                        {job.category}
+                                        {categoryLabelFromValue(job.category)}
                                     </span>
                                 </div>
                                 <p className="text-sm text-zinc-500 line-clamp-2 mb-4 leading-relaxed">{job.description}</p>

@@ -18,6 +18,12 @@ export default function RegisterPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const getAuthError = (message: string) => {
+        if (lang === 'ru' && /[A-Za-z]/.test(message) && !/[А-Яа-я]/.test(message)) {
+            return 'Не удалось создать аккаунт. Проверьте данные и попробуйте снова.';
+        }
+        return message;
+    };
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -33,7 +39,7 @@ export default function RegisterPage() {
         });
 
         if (authError) {
-            setError(authError.message);
+            setError(getAuthError(authError.message));
             setLoading(false);
             return;
         }
