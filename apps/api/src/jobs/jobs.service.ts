@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateJobDto } from './dto/create-job.dto';
@@ -49,6 +49,20 @@ export class JobsService {
         });
     }
 
+    async findMyJobs(userId: string) {
+        return this.prisma.job.findMany({
+            where: {
+                OR: [{ clientId: userId }, { workerId: userId }],
+            },
+            orderBy: { createdAt: 'desc' },
+            include: {
+                milestones: { orderBy: { order: 'asc' } },
+                client: { select: { fullName: true } },
+                worker: { select: { fullName: true } },
+            },
+        });
+    }
+
     async findOne(id: string) {
         const job = await this.prisma.job.findUnique({
             where: { id },
@@ -63,5 +77,18 @@ export class JobsService {
         }
 
         return job;
+    }
+
+    async deleteJob(clientId: string, jobId: string) {
+        const job = await this.prisma.job.findUnique({ where: { id: jobId } });
+        if (!job) throw new NotFoundException(`Job ${jobId} not found`);
+        if (job.clientId !== clientId) throw new ForbiddenException('Only the client can delete this job');
+        if (job.status !== 'OPEN') throw new BadRequestException('Can only delete OPEN jobs');
+
+        await this.prisma.proposal.deleteMany({ where: { jobId } });
+        await this.prisma.milestone.deleteMany({ where: { jobId } });
+        await this.prisma.job.delete({ where: { id: jobId } });
+
+        return { deleted: true };
     }
 }

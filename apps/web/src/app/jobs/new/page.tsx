@@ -113,19 +113,20 @@ export default function CreateJobPage() {
                         </div>
                         <div className="space-y-3">
                             {milestones.map((m, i) => (
-                                <div key={i} className="flex gap-3 items-center">
+                                <div key={i} className="grid grid-cols-[1fr_120px_auto] gap-3 items-center">
                                     <input required value={m.title} onChange={(e) => updateMilestone(i, 'title', e.target.value)}
                                         placeholder={t('createJob.milestoneName')}
-                                        className={`${inputStyle} flex-1`} />
+                                        className="px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-white text-sm placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-gold/30 focus:border-transparent transition-all min-w-0" />
                                     <input required type="number" min="1" step="0.01" value={m.amount}
                                         onChange={(e) => updateMilestone(i, 'amount', e.target.value)}
-                                        placeholder="$" className={`${inputStyle} w-28`} />
-                                    {milestones.length > 1 && (
+                                        placeholder="$"
+                                        className="px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-white text-sm placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-gold/30 focus:border-transparent transition-all" />
+                                    {milestones.length > 1 ? (
                                         <button type="button" onClick={() => removeMilestone(i)}
-                                            className="text-zinc-600 hover:text-red-400 transition-colors shrink-0">
+                                            className="text-zinc-600 hover:text-red-400 transition-colors p-1">
                                             <X size={16} />
                                         </button>
-                                    )}
+                                    ) : <div className="w-6" />}
                                 </div>
                             ))}
                         </div>

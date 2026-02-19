@@ -86,6 +86,12 @@ const dict = {
         txHistory: { en: 'Transaction History', ru: 'История транзакций' },
         entries: { en: 'entries', ru: 'записей' },
         noTx: { en: 'No transactions yet. Start by depositing funds or accepting a job.', ru: 'Пока нет транзакций. Пополните счёт или примите заказ.' },
+        myJobs: { en: 'My Jobs', ru: 'Мои заказы' },
+        noJobs: { en: 'You have no active jobs yet.', ru: 'У вас пока нет активных заказов.' },
+        asClient: { en: 'Client', ru: 'Заказчик' },
+        asWorker: { en: 'Worker', ru: 'Исполнитель' },
+        milestonesDone: { en: 'milestones done', ru: 'этапов выполнено' },
+        viewJob: { en: 'View →', ru: 'Открыть →' },
     },
 
     // ───────── Jobs List ─────────

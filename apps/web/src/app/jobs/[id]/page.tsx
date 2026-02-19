@@ -8,7 +8,7 @@ import { useLang } from '@/lib/i18n';
 import { toast } from 'sonner';
 import {
     ArrowLeft, CheckCircle2, Clock, Shield, Loader2, Send,
-    DollarSign, User, XCircle, Lock,
+    DollarSign, User, XCircle, Lock, Trash2,
 } from 'lucide-react';
 
 type Milestone = { id: string; title: string; amount: string; status: string; order: number };
@@ -134,10 +134,25 @@ export default function JobDetailPage() {
                         </div>
                     </div>
                     {(isClient || isWorker) && (
-                        <div className="mt-6 pt-4 border-t border-white/[0.04]">
+                        <div className="mt-6 pt-4 border-t border-white/[0.04] flex items-center justify-between">
                             <span className={`px-3 py-1 rounded-full text-xs font-semibold ${isClient ? 'bg-gold/10 text-gold' : 'bg-blue-500/10 text-blue-400'}`}>
                                 {isClient ? t('jobDetail.youAreClient') : t('jobDetail.youAreWorker')}
                             </span>
+                            {isClient && job.status === 'OPEN' && (
+                                <button
+                                    onClick={async () => {
+                                        if (!window.confirm(lang === 'ru' ? 'Удалить этот заказ?' : 'Delete this job?')) return;
+                                        try {
+                                            await api.jobs.delete(jobId);
+                                            toast.success(lang === 'ru' ? 'Заказ удалён' : 'Job deleted');
+                                            router.push('/jobs');
+                                        } catch (err: any) { toast.error(err.message); }
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-red-400 bg-red-500/10 hover:bg-red-500/20 rounded-xl transition-all"
+                                >
+                                    <Trash2 size={14} />{lang === 'ru' ? 'Удалить заказ' : 'Delete Job'}
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>

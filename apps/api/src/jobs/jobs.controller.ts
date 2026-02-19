@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { JobsService } from './jobs.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -21,8 +21,23 @@ export class JobsController {
         return this.jobsService.findAllOpen();
     }
 
+    @UseGuards(JwtAuthGuard)
+    @Get('my')
+    async findMine(@Request() req: { user: { userId: string } }) {
+        return this.jobsService.findMyJobs(req.user.userId);
+    }
+
     @Get(':id')
     async findOne(@Param('id') id: string) {
         return this.jobsService.findOne(id);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Delete(':id')
+    async remove(
+        @Request() req: { user: { userId: string } },
+        @Param('id') id: string,
+    ) {
+        return this.jobsService.deleteJob(req.user.userId, id);
     }
 }

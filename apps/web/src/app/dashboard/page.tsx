@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api-client';
+import { getSupabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { useLang } from '@/lib/i18n';
-import { Wallet, ArrowUpRight, Clock, CheckCircle2, ArrowDownLeft, Shield } from 'lucide-react';
+import {
+    Wallet, ArrowUpRight, Clock, CheckCircle2, ArrowDownLeft,
+    Shield, Briefcase, Plus,
+} from 'lucide-react';
 
 type Transaction = {
     id: string;
@@ -15,12 +19,34 @@ type Transaction = {
     createdAt: string;
 };
 
+type Milestone = { id: string; status: string };
+type MyJob = {
+    id: string;
+    title: string;
+    status: string;
+    totalBudget: string;
+    category: string;
+    clientId: string;
+    workerId: string | null;
+    client: { fullName: string };
+    worker: { fullName: string } | null;
+    milestones: Milestone[];
+};
+
 const TX_ICONS: Record<string, { icon: typeof ArrowUpRight; color: string; sign: string }> = {
     DEPOSIT: { icon: ArrowDownLeft, color: 'text-emerald-400', sign: '+' },
     ESCROW_LOCK: { icon: Shield, color: 'text-blue-400', sign: '-' },
     RELEASE: { icon: ArrowUpRight, color: 'text-gold', sign: '+' },
     PLATFORM_FEE: { icon: CheckCircle2, color: 'text-violet-400', sign: '+' },
     REFUND: { icon: ArrowDownLeft, color: 'text-emerald-400', sign: '+' },
+};
+
+const STATUS_COLORS: Record<string, { color: string; bg: string }> = {
+    OPEN: { color: 'text-gold', bg: 'bg-gold/10' },
+    ASSIGNED: { color: 'text-violet-400', bg: 'bg-violet-500/10' },
+    IN_PROGRESS: { color: 'text-blue-400', bg: 'bg-blue-500/10' },
+    COMPLETED: { color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+    DISPUTED: { color: 'text-red-400', bg: 'bg-red-500/10' },
 };
 
 function formatTimeAgo(dateString: string): string {
@@ -41,18 +67,25 @@ export default function DashboardPage() {
     const { t, lang, toggle } = useLang();
     const [balance, setBalance] = useState<{ available: string; frozen: string } | null>(null);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [myJobs, setMyJobs] = useState<MyJob[]>([]);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         async function fetchData() {
             try {
-                const [balanceData, txData] = await Promise.all([
+                const { data: { session } } = await getSupabase().auth.getSession();
+                if (session?.user?.id) setCurrentUserId(session.user.id);
+
+                const [balanceData, txData, jobsData] = await Promise.all([
                     api.wallets.getBalance(),
                     api.wallets.getTransactions(),
+                    api.jobs.getMine(),
                 ]);
                 setBalance(balanceData);
                 setTransactions(txData);
+                setMyJobs(jobsData);
             } catch (err: any) {
                 setError(err.message || 'Failed to fetch data');
             } finally {
@@ -62,15 +95,19 @@ export default function DashboardPage() {
         fetchData();
     }, []);
 
+    const STATUS_LABELS: Record<string, string> = {
+        OPEN: t('status.open'), ASSIGNED: t('status.assigned'),
+        IN_PROGRESS: t('status.inProgress'), COMPLETED: t('status.completed'),
+        DISPUTED: t('status.disputed'),
+    };
+
     return (
         <div className="min-h-screen bg-[#09090b] text-white p-6 md:p-12">
             <div className="max-w-6xl mx-auto space-y-8">
                 {/* Header */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-in">
                     <div>
-                        <h1 className="font-display text-3xl font-bold tracking-tight">
-                            {t('dash.title')}
-                        </h1>
+                        <h1 className="font-display text-3xl font-bold tracking-tight">{t('dash.title')}</h1>
                         <p className="text-zinc-500 mt-1">{t('dash.subtitle')}</p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -78,9 +115,12 @@ export default function DashboardPage() {
                             className="px-3 py-1.5 text-xs font-bold border border-white/[0.06] rounded-lg bg-white/[0.02] hover:bg-white/[0.05] transition-all text-zinc-500 uppercase tracking-widest">
                             {lang === 'ru' ? 'EN' : 'RU'}
                         </button>
-                        <Link href="/jobs"
-                            className="px-5 py-2.5 bg-gold text-black font-bold rounded-xl hover:bg-gold-dim transition-all active:scale-95 text-sm">
+                        <Link href="/jobs" className="px-4 py-2 text-sm text-zinc-400 hover:text-white transition-colors">
                             {t('nav.browseJobs')}
+                        </Link>
+                        <Link href="/jobs/new"
+                            className="px-5 py-2.5 bg-gold text-black font-bold rounded-xl hover:bg-gold-dim transition-all active:scale-95 text-sm flex items-center gap-2">
+                            <Plus size={16} />{t('nav.postJob')}
                         </Link>
                     </div>
                 </div>
@@ -130,8 +170,86 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
+                {/* My Jobs */}
+                <div className="space-y-4 animate-in" style={{ animationDelay: '0.25s' }}>
+                    <h2 className="font-display text-xl font-bold flex items-center gap-2">
+                        <Briefcase size={20} className="text-gold" />
+                        {t('dash.myJobs')}
+                    </h2>
+                    {loading ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {[0, 1].map(i => (
+                                <div key={i} className="bg-surface border border-white/[0.04] rounded-2xl p-6 animate-pulse space-y-3">
+                                    <div className="h-5 w-3/4 bg-white/[0.03] rounded" />
+                                    <div className="h-3 w-1/2 bg-white/[0.03] rounded" />
+                                    <div className="h-2 w-full bg-white/[0.03] rounded-full" />
+                                </div>
+                            ))}
+                        </div>
+                    ) : myJobs.length === 0 ? (
+                        <div className="bg-surface border border-white/[0.04] rounded-2xl p-10 text-center">
+                            <Briefcase size={32} className="text-zinc-700 mx-auto mb-3" />
+                            <p className="text-zinc-600 italic">{t('dash.noJobs')}</p>
+                            <div className="flex items-center justify-center gap-3 mt-4">
+                                <Link href="/jobs" className="text-sm text-gold hover:text-gold-dim transition-colors font-semibold">{t('nav.browseJobs')}</Link>
+                                <span className="text-zinc-700">·</span>
+                                <Link href="/jobs/new" className="text-sm text-gold hover:text-gold-dim transition-colors font-semibold">{t('nav.postJob')}</Link>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {myJobs.map((job) => {
+                                const isMyClient = currentUserId === job.clientId;
+                                const st = STATUS_COLORS[job.status] || STATUS_COLORS.OPEN;
+                                const completedMs = job.milestones.filter(m => m.status === 'COMPLETED').length;
+                                const totalMs = job.milestones.length;
+                                const progress = totalMs > 0 ? (completedMs / totalMs) * 100 : 0;
+
+                                return (
+                                    <Link key={job.id} href={`/jobs/${job.id}`}
+                                        className="bg-surface border border-white/[0.04] rounded-2xl p-6 hover:border-gold/20 hover:shadow-[0_0_30px_rgba(245,158,11,0.04)] transition-all group">
+                                        <div className="flex items-start justify-between mb-3">
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="font-display font-semibold text-base group-hover:text-gold transition-colors truncate">
+                                                    {job.title}
+                                                </h3>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${isMyClient ? 'bg-gold/10 text-gold' : 'bg-blue-500/10 text-blue-400'}`}>
+                                                        {isMyClient ? t('dash.asClient') : t('dash.asWorker')}
+                                                    </span>
+                                                    <span className="text-xs text-zinc-700 capitalize">{job.category}</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col items-end gap-1 shrink-0 ml-3">
+                                                <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${st.bg} ${st.color}`}>
+                                                    {STATUS_LABELS[job.status] || job.status}
+                                                </span>
+                                                <span className="text-sm font-bold text-gold">${job.totalBudget}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Progress bar */}
+                                        <div className="mt-4">
+                                            <div className="flex justify-between text-xs text-zinc-600 mb-1.5">
+                                                <span>{completedMs}/{totalMs} {t('dash.milestonesDone')}</span>
+                                                <span className="text-gold font-medium group-hover:translate-x-1 transition-transform">{t('dash.viewJob')}</span>
+                                            </div>
+                                            <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-gradient-to-r from-gold to-amber-400 rounded-full transition-all duration-500"
+                                                    style={{ width: `${progress}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
                 {/* Transactions */}
-                <div className="bg-surface border border-white/[0.04] rounded-2xl overflow-hidden animate-in" style={{ animationDelay: '0.25s' }}>
+                <div className="bg-surface border border-white/[0.04] rounded-2xl overflow-hidden animate-in" style={{ animationDelay: '0.3s' }}>
                     <div className="p-6 border-b border-white/[0.04] flex justify-between items-center">
                         <h2 className="font-display text-lg font-bold">{t('dash.txHistory')}</h2>
                         <span className="text-sm text-zinc-600">{transactions.length} {t('dash.entries')}</span>

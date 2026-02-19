@@ -53,6 +53,19 @@ export const api = {
         return response.json();
     },
 
+    async del(path: string) {
+        const headers = await getAuthHeaders();
+        const response = await fetch(`${API_BASE_URL}${path}`, {
+            method: 'DELETE',
+            headers,
+        });
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ message: response.statusText }));
+            throw new Error(error.message || 'API request failed');
+        }
+        return response.json();
+    },
+
     // Typed Wrappers
     wallets: {
         getBalance: () => api.get('/wallets/balance'),
@@ -62,8 +75,10 @@ export const api = {
 
     jobs: {
         getAll: () => api.get('/jobs'),
+        getMine: () => api.get('/jobs/my'),
         getOne: (id: string) => api.get(`/jobs/${id}`),
         create: (data: any) => api.post('/jobs', data),
+        delete: (id: string) => api.del(`/jobs/${id}`),
     },
 
     proposals: {
