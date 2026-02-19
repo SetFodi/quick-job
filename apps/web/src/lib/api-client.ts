@@ -68,7 +68,10 @@ export const api = {
 
     proposals: {
         create: (jobId: string, data: any) => api.post(`/jobs/${jobId}/proposals`, data),
+        getForJob: (jobId: string) => api.get(`/jobs/${jobId}/proposals`),
+        getMine: () => api.get('/my-proposals'),
         accept: (id: string) => api.patch(`/proposals/${id}/accept`),
+        reject: (id: string) => api.patch(`/proposals/${id}/reject`),
     },
 
     escrow: {

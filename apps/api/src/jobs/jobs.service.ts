@@ -31,6 +31,10 @@ export class JobsService {
             });
 
             return job;
+        }, {
+            isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+            maxWait: 10000,
+            timeout: 15000,
         });
     }
 

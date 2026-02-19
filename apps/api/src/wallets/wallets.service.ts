@@ -164,6 +164,17 @@ export class WalletsService {
             },
         });
 
+        // Ledger: RELEASE on worker wallet (95% credit — their earnings)
+        await tx.transaction.create({
+            data: {
+                walletId: workerWalletId,
+                milestoneId,
+                type: 'RELEASE',
+                amount: workerAmount,
+                referenceNote: `Payment received for milestone ${milestoneId}`,
+            },
+        });
+
         // Ledger: PLATFORM_FEE on platform wallet (5% credit)
         await tx.transaction.create({
             data: {
