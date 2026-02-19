@@ -13,6 +13,12 @@ export class WalletsController {
         return this.walletsService.getBalance(req.user.userId);
     }
 
+    @UseGuards(JwtAuthGuard)
+    @Get('transactions')
+    async getTransactions(@Request() req: { user: { userId: string } }) {
+        return this.walletsService.getTransactions(req.user.userId);
+    }
+
     /** Admin-only — will get @Roles('ADMIN') guard later */
     @Post(':userId/deposit')
     async deposit(

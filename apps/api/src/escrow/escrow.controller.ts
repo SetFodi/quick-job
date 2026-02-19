@@ -16,11 +16,24 @@ export class EscrowController {
         return this.escrowService.lockFundsForMilestone(req.user.userId, milestoneId);
     }
 
+    /** Worker submits completed work for review */
+    @UseGuards(JwtAuthGuard)
+    @Post('milestones/:milestoneId/submit')
+    async submitWork(
+        @Request() req: { user: { userId: string } },
+        @Param('milestoneId') milestoneId: string,
+    ) {
+        return this.escrowService.submitMilestone(req.user.userId, milestoneId);
+    }
+
     /** Client approves work — releases funds to worker (minus 5% fee) */
     @UseGuards(JwtAuthGuard)
     @Post('milestones/:milestoneId/release')
-    async release(@Param('milestoneId') milestoneId: string) {
-        return this.escrowService.releaseMilestone(milestoneId);
+    async release(
+        @Request() req: { user: { userId: string } },
+        @Param('milestoneId') milestoneId: string,
+    ) {
+        return this.escrowService.releaseMilestone(req.user.userId, milestoneId);
     }
 
     /** Either party disputes a milestone */

@@ -25,6 +25,28 @@ export class WalletsService {
     }
 
     /**
+     * Get transaction history for the logged-in user.
+     * Returns ledger entries ordered by most recent first.
+     */
+    async getTransactions(userId: string) {
+        const wallet = await this.prisma.wallet.findUnique({ where: { userId } });
+        if (!wallet) throw new NotFoundException('Wallet not found');
+
+        return this.prisma.transaction.findMany({
+            where: { walletId: wallet.id },
+            orderBy: { createdAt: 'desc' },
+            select: {
+                id: true,
+                type: true,
+                amount: true,
+                referenceNote: true,
+                milestoneId: true,
+                createdAt: true,
+            },
+        });
+    }
+
+    /**
      * Admin-only: Credit a user's available balance after verifying
      * an external bank transfer. Creates a DEPOSIT ledger entry.
      */

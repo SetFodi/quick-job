@@ -65,28 +65,87 @@ export class EscrowService {
                     data: { status: 'FUNDED' },
                 });
 
-                return { milestoneId, amountLocked: amount.toString(), status: 'FUNDED' };
+                // Transition job to IN_PROGRESS if it was ASSIGNED
+                if (milestone.job.status === 'ASSIGNED') {
+                    await tx.job.update({
+                        where: { id: milestone.jobId },
+                        data: { status: 'IN_PROGRESS' },
+                    });
+                }
+
+                return {
+                    milestoneId,
+                    amountLocked: amount.toString(),
+                    status: 'FUNDED',
+                    jobStatus: milestone.job.status === 'ASSIGNED' ? 'IN_PROGRESS' : milestone.job.status,
+                };
             },
-            { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+            {
+                isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+                timeout: 20000,
+            },
         );
+    }
+
+    /**
+     * Worker submits work for a funded milestone.
+     *
+     * Flow:
+     * 1. Verify the caller is the job's assigned worker
+     * 2. Verify the milestone is in FUNDED status
+     * 3. Update milestone status to REVIEW
+     * Job stays IN_PROGRESS (multi-milestone independence)
+     */
+    async submitMilestone(workerId: string, milestoneId: string) {
+        const milestone = await this.prisma.milestone.findUniqueOrThrow({
+            where: { id: milestoneId },
+            include: { job: true },
+        });
+
+        if (milestone.job.workerId !== workerId) {
+            throw new ForbiddenException('Only the assigned worker can submit work');
+        }
+
+        if (milestone.status !== 'FUNDED') {
+            throw new BadRequestException(
+                `Milestone must be FUNDED to submit. Current status: ${milestone.status}`,
+            );
+        }
+
+        const updated = await this.prisma.milestone.update({
+            where: { id: milestoneId },
+            data: { status: 'REVIEW' },
+        });
+
+        return {
+            milestoneId: updated.id,
+            status: 'REVIEW',
+            message: 'Work submitted for client review',
+        };
     }
 
     /**
      * Release funds for a completed milestone.
      *
      * Flow:
-     * 1. Verify milestone is in REVIEW status
-     * 2. Calculate: workerAmount = amount * 0.95, platformFee = amount * 0.05
-     * 3. Atomically: move funds from client frozen → worker available, log transactions
-     * 4. Update milestone to COMPLETED
+     * 1. Verify the caller is the job's client
+     * 2. Verify milestone is in REVIEW status
+     * 3. Calculate: workerAmount = amount * 0.95, platformFee = amount * 0.05
+     * 4. Atomically: move funds from client frozen → worker available, log transactions
+     * 5. Update milestone to COMPLETED
+     * 6. If all milestones completed → Job becomes COMPLETED
      */
-    async releaseMilestone(milestoneId: string) {
+    async releaseMilestone(clientId: string, milestoneId: string) {
         return this.prisma.$transaction(
             async (tx) => {
                 const milestone = await tx.milestone.findUniqueOrThrow({
                     where: { id: milestoneId },
                     include: { job: true },
                 });
+
+                if (milestone.job.clientId !== clientId) {
+                    throw new ForbiddenException('Only the job client can release funds');
+                }
 
                 if (milestone.status !== 'REVIEW') {
                     throw new BadRequestException(
@@ -134,7 +193,9 @@ export class EscrowService {
                     },
                 });
 
-                if (remainingMilestones === 0) {
+                const jobCompleted = remainingMilestones === 0;
+
+                if (jobCompleted) {
                     await tx.job.update({
                         where: { id: milestone.jobId },
                         data: { status: 'COMPLETED' },
@@ -146,9 +207,13 @@ export class EscrowService {
                     released: amount.toString(),
                     platformFee: feeAmount.toString(),
                     workerReceived: workerAmount.toString(),
+                    jobCompleted,
                 };
             },
-            { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+            {
+                isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+                timeout: 20000,
+            },
         );
     }
 
@@ -203,7 +268,10 @@ export class EscrowService {
 
                 return { milestoneId, refunded: amount.toString(), status: 'PENDING' };
             },
-            { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+            {
+                isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+                timeout: 20000,
+            },
         );
     }
 
@@ -262,7 +330,10 @@ export class EscrowService {
                     workerReceived: workerAmount.toString(),
                 };
             },
-            { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+            {
+                isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+                timeout: 20000,
+            },
         );
     }
 }

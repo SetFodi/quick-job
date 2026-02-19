@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy, StrategyOptionsWithoutRequest } from 'passport-jwt';
+import { ConfigService } from '@nestjs/config';
+import { ExtractJwt, Strategy } from 'passport-jwt';
 import { passportJwtSecret } from 'jwks-rsa';
 
 interface SupabaseJwtPayload {
@@ -8,42 +9,31 @@ interface SupabaseJwtPayload {
     email: string;
     role: string;
     aud: string;
+    iss: string;
 }
 
 @Injectable()
 export class SupabaseStrategy extends PassportStrategy(Strategy) {
-    constructor() {
-        const supabaseUrl = process.env.SUPABASE_URL;
-        const anonKey = process.env.SUPABASE_ANON_KEY;
-        const jwtSecret = process.env.SUPABASE_JWT_SECRET;
+    constructor(configService: ConfigService) {
+        const supabaseUrl = configService.get<string>('SUPABASE_URL')?.replace(/\/$/, '');
 
-        if (!supabaseUrl && !jwtSecret) {
-            throw new Error(
-                'Either SUPABASE_URL (for JWKS/ES256) or SUPABASE_JWT_SECRET (for HMAC) must be set',
-            );
+        if (!supabaseUrl) {
+            throw new Error('SUPABASE_URL is not defined in environment');
         }
 
-        const opts: StrategyOptionsWithoutRequest = supabaseUrl
-            ? {
-                jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-                secretOrKeyProvider: passportJwtSecret({
-                    jwksUri: `${supabaseUrl}/auth/v1/.well-known/jwks.json`,
-                    cache: true,
-                    rateLimit: true,
-                    jwksRequestsPerMinute: 5,
-                    requestHeaders: { apikey: anonKey || '' },
-                }),
-                ignoreExpiration: false,
-                algorithms: ['ES256', 'HS256'],
-            }
-            : {
-                jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-                secretOrKey: jwtSecret!,
-                ignoreExpiration: false,
-                algorithms: ['HS256'],
-            };
-
-        super(opts);
+        super({
+            jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+            ignoreExpiration: false,
+            secretOrKeyProvider: passportJwtSecret({
+                jwksUri: `${supabaseUrl}/auth/v1/.well-known/jwks.json`,
+                cache: true,
+                rateLimit: true,
+                jwksRequestsPerMinute: 5,
+            }),
+            algorithms: ['ES256'],
+            issuer: `${supabaseUrl}/auth/v1`,
+            audience: 'authenticated',
+        });
     }
 
     validate(payload: SupabaseJwtPayload) {
@@ -54,7 +44,7 @@ export class SupabaseStrategy extends PassportStrategy(Strategy) {
         return {
             userId: payload.sub,
             email: payload.email,
-            role: payload.role,
+            role: payload.role || (payload as any).user_metadata?.role,
         };
     }
 }

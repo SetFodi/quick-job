@@ -1,0 +1,62 @@
+
+> quick-job@0.0.1 dev
+> turbo run dev
+
+• turbo 2.8.10
+• Packages in scope: @quick-job/api, @quick-job/shared, @quick-job/web
+• Running dev in 3 packages
+• Remote caching disabled
+@quick-job/api:dev: cache bypass, force executing 7d620801c77e5223
+@quick-job/web:dev: cache bypass, force executing 0a56f0564af2b303
+@quick-job/api:dev: 
+@quick-job/api:dev: > @quick-job/api@0.0.1 dev
+@quick-job/api:dev: > nest start --watch
+@quick-job/api:dev: 
+@quick-job/web:dev: 
+@quick-job/web:dev: > @quick-job/web@0.0.1 dev
+@quick-job/web:dev: > next dev --turbopack
+@quick-job/web:dev: 
+@quick-job/api:dev: [2J[3J[H[[90m3:27:30 AM[0m] Starting compilation in watch mode...
+@quick-job/api:dev: 
+@quick-job/web:dev:    ▲ Next.js 15.5.12 (Turbopack)
+@quick-job/web:dev:    - Local:        http://localhost:3000
+@quick-job/web:dev:    - Network:      http://192.168.100.3:3000
+@quick-job/web:dev:    - Environments: .env.local
+@quick-job/web:dev: 
+@quick-job/web:dev:  ✓ Starting...
+@quick-job/web:dev:  ✓ Ready in 824ms
+@quick-job/api:dev: [[90m3:27:31 AM[0m] Found 0 errors. Watching for file changes.
+@quick-job/api:dev: 
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[NestFactory] [39m[32mStarting Nest application...[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAppModule dependencies initialized[39m[38;5;3m +7ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mPrismaModule dependencies initialized[39m[38;5;3m +13ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mPassportModule dependencies initialized[39m[38;5;3m +0ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigHostModule dependencies initialized[39m[38;5;3m +16ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[SupabaseStrategy] [39m[32mSupabaseStrategy (ES256) initialized for https://lpgmxxoqrsfjqzjspzif.supabase.co[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigModule dependencies initialized[39m[38;5;3m +0ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAuthModule dependencies initialized[39m[38;5;3m +0ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mJobsModule dependencies initialized[39m[38;5;3m +0ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mProposalsModule dependencies initialized[39m[38;5;3m +0ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mWalletsModule dependencies initialized[39m[38;5;3m +0ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mEscrowModule dependencies initialized[39m[38;5;3m +0ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mWalletsController {/wallets}:[39m[38;5;3m +2ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/wallets/balance, GET} route[39m[38;5;3m +1ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/wallets/:userId/deposit, POST} route[39m[38;5;3m +1ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mEscrowController {/escrow}:[39m[38;5;3m +0ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/escrow/milestones/:milestoneId/lock, POST} route[39m[38;5;3m +0ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/escrow/milestones/:milestoneId/release, POST} route[39m[38;5;3m +0ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/escrow/milestones/:milestoneId/dispute, POST} route[39m[38;5;3m +0ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/escrow/milestones/:milestoneId/resolve-refund, POST} route[39m[38;5;3m +0ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/escrow/milestones/:milestoneId/resolve-release, POST} route[39m[38;5;3m +0ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mJobsController {/jobs}:[39m[38;5;3m +0ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/jobs, POST} route[39m[38;5;3m +1ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/jobs, GET} route[39m[38;5;3m +0ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/jobs/:id, GET} route[39m[38;5;3m +0ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mProposalsController {/}:[39m[38;5;3m +0ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/jobs/:jobId/proposals, POST} route[39m[38;5;3m +0ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/jobs/:jobId/proposals, GET} route[39m[38;5;3m +0ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/my-proposals, GET} route[39m[38;5;3m +0ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/proposals/:id/accept, PATCH} route[39m[38;5;3m +0ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:31 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/proposals/:id/reject, PATCH} route[39m[38;5;3m +0ms[39m
+@quick-job/api:dev: [32m[Nest] 24528  - [39m02/19/2026, 3:27:34 AM [32m    LOG[39m [38;5;3m[NestApplication] [39m[32mNest application successfully started[39m[38;5;3m +2531ms[39m
+@quick-job/api:dev: 🚀 Quick-Job API running on http://localhost:4000
