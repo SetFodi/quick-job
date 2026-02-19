@@ -69,7 +69,18 @@ export default function JobDetailPage() {
     const [proposals, setProposals] = useState<Proposal[]>([]);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
-    const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [actionLoading, setActionLoading] = useState<Set<string>>(new Set());
+
+    function startLoading(id: string) {
+        setActionLoading((prev) => new Set(prev).add(id));
+    }
+    function stopLoading(id: string) {
+        setActionLoading((prev) => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+        });
+    }
 
     // Proposal form state (for workers)
     const [proposedAmount, setProposedAmount] = useState('');
@@ -142,7 +153,7 @@ export default function JobDetailPage() {
     }
 
     async function handleAcceptProposal(proposalId: string) {
-        setActionLoading(proposalId);
+        startLoading(proposalId);
         try {
             await api.proposals.accept(proposalId);
             toast.success('Proposal accepted! 🤝', {
@@ -153,12 +164,12 @@ export default function JobDetailPage() {
         } catch (err: any) {
             toast.error('Failed to accept', { description: err.message });
         } finally {
-            setActionLoading(null);
+            stopLoading(proposalId);
         }
     }
 
     async function handleRejectProposal(proposalId: string) {
-        setActionLoading(proposalId);
+        startLoading(proposalId);
         try {
             await api.proposals.reject(proposalId);
             toast.success('Proposal rejected');
@@ -166,13 +177,13 @@ export default function JobDetailPage() {
         } catch (err: any) {
             toast.error('Failed to reject', { description: err.message });
         } finally {
-            setActionLoading(null);
+            stopLoading(proposalId);
         }
     }
 
     // ─── Escrow Actions ───
     async function handleFundMilestone(milestoneId: string) {
-        setActionLoading(milestoneId);
+        startLoading(milestoneId);
         try {
             await api.escrow.lockFunds(milestoneId);
             toast.success('Milestone funded! 🔒', {
@@ -182,12 +193,12 @@ export default function JobDetailPage() {
         } catch (err: any) {
             toast.error('Failed to fund', { description: err.message });
         } finally {
-            setActionLoading(null);
+            stopLoading(milestoneId);
         }
     }
 
     async function handleSubmitWork(milestoneId: string) {
-        setActionLoading(milestoneId);
+        startLoading(milestoneId);
         try {
             await api.escrow.submitWork(milestoneId);
             toast.success('Work submitted! 📤', {
@@ -197,12 +208,12 @@ export default function JobDetailPage() {
         } catch (err: any) {
             toast.error('Failed to submit', { description: err.message });
         } finally {
-            setActionLoading(null);
+            stopLoading(milestoneId);
         }
     }
 
     async function handleRelease(milestoneId: string) {
-        setActionLoading(milestoneId);
+        startLoading(milestoneId);
         try {
             const result = await api.escrow.releaseFunds(milestoneId);
             toast.success('Payment released! 💸', {
@@ -215,7 +226,7 @@ export default function JobDetailPage() {
         } catch (err: any) {
             toast.error('Failed to release', { description: err.message });
         } finally {
-            setActionLoading(null);
+            stopLoading(milestoneId);
         }
     }
 
@@ -350,10 +361,10 @@ export default function JobDetailPage() {
                                                     <div className="flex items-center gap-2 mb-1">
                                                         <span className="font-semibold">{p.worker.fullName}</span>
                                                         <span className={`text-xs px-2 py-0.5 rounded-full ${p.status === 'PENDING'
-                                                                ? 'bg-amber-500/10 text-amber-400'
-                                                                : p.status === 'ACCEPTED'
-                                                                    ? 'bg-emerald-500/10 text-emerald-400'
-                                                                    : 'bg-red-500/10 text-red-400'
+                                                            ? 'bg-amber-500/10 text-amber-400'
+                                                            : p.status === 'ACCEPTED'
+                                                                ? 'bg-emerald-500/10 text-emerald-400'
+                                                                : 'bg-red-500/10 text-red-400'
                                                             }`}>
                                                             {p.status}
                                                         </span>
@@ -370,17 +381,17 @@ export default function JobDetailPage() {
                                                         <>
                                                             <button
                                                                 onClick={() => handleAcceptProposal(p.id)}
-                                                                disabled={actionLoading === p.id}
+                                                                disabled={actionLoading.has(p.id)}
                                                                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
                                                             >
-                                                                {actionLoading === p.id
+                                                                {actionLoading.has(p.id)
                                                                     ? <Loader2 size={12} className="animate-spin" />
                                                                     : <CheckCircle2 size={12} />}
                                                                 Accept
                                                             </button>
                                                             <button
                                                                 onClick={() => handleRejectProposal(p.id)}
-                                                                disabled={actionLoading === p.id}
+                                                                disabled={actionLoading.has(p.id)}
                                                                 className="px-4 py-2 bg-red-600/50 hover:bg-red-600 text-white font-semibold rounded-xl text-xs transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
                                                             >
                                                                 <XCircle size={12} />
@@ -409,7 +420,7 @@ export default function JobDetailPage() {
                         .sort((a, b) => a.order - b.order)
                         .map((milestone, index) => {
                             const config = STATUS_CONFIG[milestone.status] || STATUS_CONFIG.PENDING;
-                            const isLoadingThis = actionLoading === milestone.id;
+                            const isLoadingThis = actionLoading.has(milestone.id);
 
                             return (
                                 <div
