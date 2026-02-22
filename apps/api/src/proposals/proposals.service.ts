@@ -9,9 +9,50 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProposalDto } from './dto/create-proposal.dto';
 
+type MilestoneAmount = { id: string; amount: Prisma.Decimal };
+
 @Injectable()
 export class ProposalsService {
     constructor(private readonly prisma: PrismaService) { }
+
+    private calculateMilestoneAmounts(
+        milestones: MilestoneAmount[],
+        proposedAmount: Prisma.Decimal,
+    ) {
+        if (milestones.length === 0) {
+            throw new BadRequestException('Job has no milestones');
+        }
+
+        const currentTotal = milestones.reduce(
+            (total, milestone) => total.plus(milestone.amount),
+            new Prisma.Decimal(0),
+        );
+
+        if (currentTotal.lessThanOrEqualTo(0)) {
+            throw new BadRequestException('Milestone total must be greater than zero');
+        }
+
+        if (milestones.length === 1) {
+            return [{ id: milestones[0].id, amount: proposedAmount.toDecimalPlaces(2) }];
+        }
+
+        const nextAmounts: { id: string; amount: Prisma.Decimal }[] = [];
+        let allocated = new Prisma.Decimal(0);
+
+        for (let index = 0; index < milestones.length - 1; index += 1) {
+            const milestone = milestones[index];
+            const share = milestone.amount.div(currentTotal);
+            const nextAmount = proposedAmount.mul(share).toDecimalPlaces(2);
+            nextAmounts.push({ id: milestone.id, amount: nextAmount });
+            allocated = allocated.plus(nextAmount);
+        }
+
+        const lastMilestone = milestones[milestones.length - 1];
+        const remainder = proposedAmount.minus(allocated).toDecimalPlaces(2);
+        nextAmounts.push({ id: lastMilestone.id, amount: remainder });
+
+        return nextAmounts;
+    }
 
     async createProposal(
         workerId: string,
@@ -81,7 +122,7 @@ export class ProposalsService {
         return this.prisma.$transaction(async (tx) => {
             const proposal = await tx.proposal.findUnique({
                 where: { id: proposalId },
-                include: { job: true },
+                include: { job: { include: { milestones: { orderBy: { order: 'asc' } } } } },
             });
 
             if (!proposal) throw new NotFoundException('Proposal not found');
@@ -91,6 +132,23 @@ export class ProposalsService {
                 throw new BadRequestException('Job is no longer open');
             if (proposal.status !== 'PENDING')
                 throw new BadRequestException('Proposal is not pending');
+            if (proposal.proposedAmount.lessThanOrEqualTo(0))
+                throw new BadRequestException('Proposed amount must be greater than zero');
+
+            const updatedMilestones = this.calculateMilestoneAmounts(
+                proposal.job.milestones.map((milestone) => ({
+                    id: milestone.id,
+                    amount: new Prisma.Decimal(milestone.amount.toString()),
+                })),
+                new Prisma.Decimal(proposal.proposedAmount.toString()),
+            );
+
+            for (const milestone of updatedMilestones) {
+                await tx.milestone.update({
+                    where: { id: milestone.id },
+                    data: { amount: milestone.amount },
+                });
+            }
 
             // 1. Accept this proposal
             const accepted = await tx.proposal.update({
@@ -104,6 +162,7 @@ export class ProposalsService {
                 data: {
                     workerId: proposal.workerId,
                     status: 'ASSIGNED',
+                    totalBudget: proposal.proposedAmount,
                 },
             });
 
