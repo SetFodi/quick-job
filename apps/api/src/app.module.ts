@@ -7,6 +7,7 @@ import { EscrowModule } from './escrow/escrow.module';
 import { JobsModule } from './jobs/jobs.module';
 import { ProposalsModule } from './proposals/proposals.module';
 import { UsersModule } from './users/users.module';
+import { MessagesModule } from './messages/messages.module';
 
 @Module({
     imports: [
@@ -18,6 +19,7 @@ import { UsersModule } from './users/users.module';
         JobsModule,
         ProposalsModule,
         UsersModule,
+        MessagesModule,
     ],
 })
 export class AppModule { }

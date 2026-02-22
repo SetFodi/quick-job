@@ -143,12 +143,14 @@ export class ProposalsService {
                 new Prisma.Decimal(proposal.proposedAmount.toString()),
             );
 
-            for (const milestone of updatedMilestones) {
-                await tx.milestone.update({
-                    where: { id: milestone.id },
-                    data: { amount: milestone.amount },
-                });
-            }
+            await Promise.all(
+                updatedMilestones.map((milestone) =>
+                    tx.milestone.update({
+                        where: { id: milestone.id },
+                        data: { amount: milestone.amount },
+                    }),
+                ),
+            );
 
             // 1. Accept this proposal
             const accepted = await tx.proposal.update({
@@ -177,6 +179,10 @@ export class ProposalsService {
             });
 
             return accepted;
+        }, {
+            isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+            maxWait: 10000,
+            timeout: 20000,
         });
     }
 

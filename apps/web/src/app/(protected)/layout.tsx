@@ -18,7 +18,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
     return (
         <>
             <Navbar userRole={userRole} loading={loading} logout={logout} />
-            <main className="pt-14">
+            <main className="pt-12 pb-20 md:pt-14 md:pb-0">
                 {children}
             </main>
         </>

@@ -17,8 +17,8 @@ export class WalletsController {
 
     @UseGuards(JwtAuthGuard)
     @Get('transactions')
-    async getTransactions(@Request() req: { user: { userId: string } }) {
-        return this.walletsService.getTransactions(req.user.userId);
+    async getTransactions(@Request() req: { user: { userId: string; role?: string } }) {
+        return this.walletsService.getTransactions(req.user.userId, req.user.role);
     }
 
     @AdminOnly()

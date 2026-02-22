@@ -28,7 +28,41 @@ export class WalletsService {
      * Get transaction history for the logged-in user.
      * Returns ledger entries ordered by most recent first.
      */
-    async getTransactions(userId: string) {
+    async getTransactions(userId: string, userRole?: string) {
+        if (userRole === 'ADMIN') {
+            const transactions = await this.prisma.transaction.findMany({
+                orderBy: { createdAt: 'desc' },
+                select: {
+                    id: true,
+                    type: true,
+                    amount: true,
+                    referenceNote: true,
+                    milestoneId: true,
+                    createdAt: true,
+                    wallet: {
+                        select: {
+                            user: {
+                                select: {
+                                    email: true,
+                                },
+                            },
+                        },
+                    },
+                },
+            });
+
+            return transactions.map((tx) => ({
+                id: tx.id,
+                type: tx.type,
+                amount: tx.amount,
+                referenceNote: tx.wallet.user?.email
+                    ? `[${tx.wallet.user.email}] ${tx.referenceNote ?? ''}`.trim()
+                    : tx.referenceNote,
+                milestoneId: tx.milestoneId,
+                createdAt: tx.createdAt,
+            }));
+        }
+
         const wallet = await this.prisma.wallet.findUnique({ where: { userId } });
         if (!wallet) throw new NotFoundException('Wallet not found');
 

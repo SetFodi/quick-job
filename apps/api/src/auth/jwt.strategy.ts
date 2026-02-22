@@ -12,7 +12,12 @@ interface SupabaseJwtPayload {
     role: string;
     aud: string;
     iss: string;
+    user_metadata?: { role?: string };
 }
+
+const ALLOWED_ROLES: UserRole[] = ['CLIENT', 'WORKER', 'ADMIN'];
+const roleCache = new Map<string, { role: UserRole; at: number }>();
+const ROLE_CACHE_TTL = 300_000; // 5 minutes
 
 @Injectable()
 export class SupabaseStrategy extends PassportStrategy(Strategy) {
@@ -32,6 +37,7 @@ export class SupabaseStrategy extends PassportStrategy(Strategy) {
             secretOrKeyProvider: passportJwtSecret({
                 jwksUri: `${supabaseUrl}/auth/v1/.well-known/jwks.json`,
                 cache: true,
+                cacheMaxAge: 600_000,
                 rateLimit: true,
                 jwksRequestsPerMinute: 5,
             }),
@@ -46,29 +52,39 @@ export class SupabaseStrategy extends PassportStrategy(Strategy) {
             throw new UnauthorizedException('Invalid token audience');
         }
 
+        const metadataRole = payload.user_metadata?.role;
+        if (metadataRole && ALLOWED_ROLES.includes(metadataRole as UserRole)) {
+            return {
+                userId: payload.sub,
+                email: payload.email,
+                role: metadataRole as UserRole,
+            };
+        }
+
+        const cached = roleCache.get(payload.sub);
+        if (cached && Date.now() - cached.at < ROLE_CACHE_TTL) {
+            return {
+                userId: payload.sub,
+                email: payload.email,
+                role: cached.role,
+            };
+        }
+
         const user = await this.prisma.user.findUnique({
             where: { id: payload.sub },
             select: { role: true },
         });
 
-        const metadataRole = (payload as SupabaseJwtPayload & {
-            user_metadata?: { role?: string };
-        }).user_metadata?.role;
-
-        const allowedRoles: UserRole[] = ['CLIENT', 'WORKER', 'ADMIN'];
-        const roleFromMetadata = allowedRoles.includes(metadataRole as UserRole)
-            ? (metadataRole as UserRole)
-            : null;
-        const resolvedRole = user?.role ?? roleFromMetadata;
-
-        if (!resolvedRole) {
+        if (!user?.role) {
             throw new UnauthorizedException('User role is not available');
         }
+
+        roleCache.set(payload.sub, { role: user.role, at: Date.now() });
 
         return {
             userId: payload.sub,
             email: payload.email,
-            role: resolvedRole,
+            role: user.role,
         };
     }
 }

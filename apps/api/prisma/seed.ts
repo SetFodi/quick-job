@@ -93,11 +93,12 @@ async function main() {
     console.log('🌱 Seeding Quick-Job database...\n');
 
     // ── 1. Wipe all transactional data ──
+    const msgCount = await prisma.message.deleteMany();
     const txCount = await prisma.transaction.deleteMany();
     const propCount = await prisma.proposal.deleteMany();
     const msCount = await prisma.milestone.deleteMany();
     const jobCount = await prisma.job.deleteMany();
-    console.log(`🗑  Cleaned: ${jobCount.count} jobs, ${msCount.count} milestones, ${propCount.count} proposals, ${txCount.count} transactions`);
+    console.log(`🗑  Cleaned: ${jobCount.count} jobs, ${msCount.count} milestones, ${propCount.count} proposals, ${txCount.count} transactions, ${msgCount.count} messages`);
 
     // ── 2. Remove extra wallets and users ──
     const deletedWallets = await prisma.wallet.deleteMany({

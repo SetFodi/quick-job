@@ -15,30 +15,14 @@ export default function DepositPage() {
     const [loading, setLoading] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
     const [checkingRole, setCheckingRole] = useState(true);
-    const getErrorMessage = (message: string | undefined, ruFallback: string, enFallback: string) => {
-        if (!message) {
-            return lang === 'ru' ? ruFallback : enFallback;
-        }
-        if (lang === 'ru' && /[A-Za-z]/.test(message) && !/[А-Яа-я]/.test(message)) {
-            return ruFallback;
-        }
-        return message;
-    };
 
     const presets = ['50', '100', '250', '500', '1000'];
 
     useEffect(() => {
-        async function checkRole() {
-            try {
-                const me = await api.users.getMe();
-                setIsAdmin(me.role === 'ADMIN');
-            } catch {
-                setIsAdmin(false);
-            } finally {
-                setCheckingRole(false);
-            }
-        }
-        checkRole();
+        api.users.getMe()
+            .then((me) => setIsAdmin(me.role === 'ADMIN'))
+            .catch(() => setIsAdmin(false))
+            .finally(() => setCheckingRole(false));
     }, []);
 
     async function handleDeposit(e: React.FormEvent) {
@@ -49,38 +33,35 @@ export default function DepositPage() {
             const { data: { session } } = await getSupabase().auth.getSession();
             if (!session?.user?.id) throw new Error(lang === 'ru' ? 'Требуется авторизация' : 'Not authenticated');
             await api.wallets.deposit(
-                session.user.id,
-                amount,
-                lang === 'ru' ? 'Пополнение администратором из панели' : 'Admin deposit from dashboard',
+                session.user.id, amount,
+                lang === 'ru' ? 'Пополнение администратором' : 'Admin deposit',
             );
-            toast.success(lang === 'ru' ? `$${amount} зачислено! 💰` : `$${amount} deposited! 💰`);
+            toast.success(lang === 'ru' ? `$${amount} зачислено!` : `$${amount} deposited!`);
             router.push('/dashboard');
         } catch (err: any) {
-            toast.error(getErrorMessage(err?.message, 'Не удалось выполнить пополнение', 'Failed to deposit'));
+            toast.error(err?.message || (lang === 'ru' ? 'Не удалось пополнить' : 'Failed'));
         } finally {
             setLoading(false);
         }
     }
 
-    const inputStyle = 'w-full px-4 py-3 rounded-xl bg-white/[0.03] border border-white/[0.06] text-white text-lg font-bold text-center placeholder:text-zinc-700 focus:outline-none focus:ring-2 focus:ring-gold/30 focus:border-transparent transition-all';
-
     return (
-        <div className="min-h-screen bg-[#09090b] text-white p-6 md:p-12">
-            <div className="max-w-md mx-auto space-y-6">
-                <button onClick={() => router.push('/dashboard')} className="flex items-center gap-2 text-zinc-500 hover:text-white transition-colors text-sm animate-in">
-                    <ArrowLeft size={16} />{lang === 'ru' ? 'К панели' : 'Back to Dashboard'}
+        <div className="min-h-screen bg-[#09090b] text-white px-4 py-5 md:px-12 md:py-10">
+            <div className="max-w-md mx-auto space-y-4">
+                <button onClick={() => router.push('/dashboard')} className="flex items-center gap-1.5 text-zinc-500 text-sm active:text-white">
+                    <ArrowLeft size={16} />{lang === 'ru' ? 'К панели' : 'Back'}
                 </button>
 
-                <div className="animate-in" style={{ animationDelay: '0.1s' }}>
-                    <h1 className="font-display text-3xl font-bold">{lang === 'ru' ? 'Пополнить счёт' : 'Deposit Funds'}</h1>
-                    <p className="text-zinc-500 mt-1">
+                <div>
+                    <h1 className="font-display text-xl font-bold">{lang === 'ru' ? 'Пополнить счёт' : 'Deposit Funds'}</h1>
+                    <p className="text-zinc-500 text-xs mt-0.5">
                         {lang === 'ru'
-                            ? 'В MVP пополнение обрабатывается администратором вручную.'
-                            : 'In MVP, top-ups are processed manually by an admin.'}
+                            ? 'Пополнение обрабатывается администратором.'
+                            : 'Top-ups are processed by an admin.'}
                     </p>
                 </div>
 
-                <form onSubmit={handleDeposit} className="bg-surface border border-white/[0.04] rounded-2xl p-8 space-y-6 animate-in" style={{ animationDelay: '0.2s' }}>
+                <form onSubmit={handleDeposit} className="bg-surface border border-white/[0.04] rounded-xl p-5 space-y-4">
                     {checkingRole ? (
                         <div className="text-zinc-500 text-sm flex items-center gap-2">
                             <Loader2 size={15} className="animate-spin" />
@@ -89,23 +70,22 @@ export default function DepositPage() {
                     ) : isAdmin ? (
                         <>
                             <div>
-                                <label className="text-sm text-zinc-400 mb-2 block">{lang === 'ru' ? 'Сумма ($)' : 'Amount ($)'}</label>
+                                <label className="text-xs text-zinc-400 mb-1 block">{lang === 'ru' ? 'Сумма ($)' : 'Amount ($)'}</label>
                                 <div className="relative">
-                                    <DollarSign size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-gold" />
+                                    <DollarSign size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gold" />
                                     <input required type="number" min="1" step="0.01" value={amount}
-                                        onChange={(e) => setAmount(e.target.value)}
-                                        placeholder="0.00"
-                                        className={`${inputStyle} pl-10`} />
+                                        onChange={(e) => setAmount(e.target.value)} placeholder="0.00"
+                                        className="w-full pl-10 py-3 rounded-xl bg-white/[0.03] border border-white/[0.06] text-white text-lg font-bold text-center placeholder:text-zinc-700 focus:outline-none focus:ring-2 focus:ring-gold/30 transition-all" />
                                 </div>
                             </div>
 
                             <div className="flex flex-wrap gap-2">
                                 {presets.map(p => (
                                     <button key={p} type="button" onClick={() => setAmount(p)}
-                                        className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${amount === p
+                                        className={`px-4 py-2.5 rounded-xl text-sm font-semibold flex-1 min-w-[60px] transition-all ${amount === p
                                             ? 'bg-gold text-black'
-                                            : 'bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06] border border-white/[0.06]'
-                                            }`}>
+                                            : 'bg-white/[0.03] text-zinc-400 border border-white/[0.06] active:bg-white/[0.06]'
+                                        }`}>
                                         ${p}
                                     </button>
                                 ))}
@@ -114,26 +94,26 @@ export default function DepositPage() {
                     ) : (
                         <div className="p-4 bg-white/[0.02] border border-white/[0.06] rounded-xl text-sm text-zinc-400 leading-relaxed">
                             {lang === 'ru'
-                                ? 'Для пополнения переведите средства по реквизитам администратора и укажите номер перевода. После подтверждения администратор зачислит сумму на ваш баланс.'
-                                : 'To top up, transfer funds using admin payment details and provide your transfer reference. After verification, the admin will credit your balance.'}
+                                ? 'Переведите средства по реквизитам администратора. После подтверждения администратор зачислит сумму на ваш баланс.'
+                                : 'Transfer funds to admin and provide your transfer reference. Admin will credit your balance.'}
                         </div>
                     )}
 
-                    <div className="flex items-start gap-3 p-4 bg-gold/[0.04] border border-gold/10 rounded-xl">
-                        <Shield size={18} className="text-gold shrink-0 mt-0.5" />
-                        <p className="text-xs text-zinc-400 leading-relaxed">
+                    <div className="flex items-start gap-2.5 p-3 bg-gold/[0.04] border border-gold/10 rounded-xl">
+                        <Shield size={16} className="text-gold shrink-0 mt-0.5" />
+                        <p className="text-[11px] text-zinc-400 leading-relaxed">
                             {lang === 'ru'
-                                ? 'Средства хранятся на вашем внутреннем счёте. При оплате заказа они замораживаются в эскроу до подтверждения работы.'
-                                : 'Funds are held in your internal account. When you pay for a job, they are locked in escrow until work is confirmed.'}
+                                ? 'Средства замораживаются в эскроу при оплате заказа.'
+                                : 'Funds are locked in escrow when you pay for a job.'}
                         </p>
                     </div>
 
                     <button type="submit" disabled={!isAdmin || checkingRole || loading || !amount}
-                        className="w-full py-3.5 bg-gold hover:bg-gold-dim text-black font-bold rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base active:scale-[0.98]">
-                        {loading ? <><Loader2 size={18} className="animate-spin" />{lang === 'ru' ? 'Зачисляем...' : 'Depositing...'}</> :
+                        className="w-full py-3.5 bg-gold text-black font-bold rounded-xl text-sm disabled:opacity-40 active:scale-95 flex items-center justify-center gap-2">
+                        {loading ? <><Loader2 size={16} className="animate-spin" />{lang === 'ru' ? 'Зачисляем...' : 'Depositing...'}</> :
                             isAdmin
                                 ? (lang === 'ru' ? `Пополнить ${amount ? `$${amount}` : ''}` : `Deposit ${amount ? `$${amount}` : ''}`)
-                                : (lang === 'ru' ? 'Ожидание зачисления админом' : 'Waiting for admin credit')}
+                                : (lang === 'ru' ? 'Ожидание зачисления' : 'Waiting for admin')}
                     </button>
                 </form>
             </div>

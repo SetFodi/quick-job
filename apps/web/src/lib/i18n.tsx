@@ -151,6 +151,16 @@ const dict = {
         allMilestonesDone: { en: 'All milestones fulfilled and payments released.', ru: 'Все этапы выполнены, оплата произведена.' },
     },
 
+    // ───────── Messages ─────────
+    msgs: {
+        title: { en: 'Messages', ru: 'Сообщения' },
+        noChats: { en: 'No conversations yet', ru: 'Пока нет сообщений' },
+        noChatsDesc: { en: 'Messages will appear when you work on a job.', ru: 'Сообщения появятся когда вы начнёте работу.' },
+        typeMessage: { en: 'Type a message...', ru: 'Введите сообщение...' },
+        send: { en: 'Send', ru: 'Отправить' },
+        chat: { en: 'Chat', ru: 'Чат' },
+    },
+
     // ───────── Status labels ─────────
     status: {
         pending: { en: 'Pending', ru: 'Ожидание' },

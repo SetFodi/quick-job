@@ -70,6 +70,7 @@ model User {
   clientJobs      Job[]      @relation("ClientJobs")
   workerJobs      Job[]      @relation("WorkerJobs")
   proposals       Proposal[]
+  messages        Message[]
 
   @@map("users")
 }
@@ -105,6 +106,7 @@ model Job {
   worker     User?       @relation("WorkerJobs", fields: [workerId], references: [id])
   milestones Milestone[]
   proposals  Proposal[]
+  messages   Message[]
 
   @@index([clientId])
   @@index([workerId])
@@ -163,4 +165,18 @@ model Transaction {
   @@index([milestoneId])
   @@index([type])
   @@map("transactions")
+}
+
+model Message {
+  id        String   @id @default(uuid()) @db.Uuid
+  jobId     String   @map("job_id") @db.Uuid
+  senderId  String   @map("sender_id") @db.Uuid
+  text      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  job    Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  sender User @relation(fields: [senderId], references: [id])
+
+  @@index([jobId, createdAt])
+  @@map("messages")
 }

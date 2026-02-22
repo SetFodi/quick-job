@@ -1,7 +1,7 @@
 import { getSupabase } from './supabase';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-const TOKEN_CACHE_MS = 15_000;
+const TOKEN_CACHE_MS = 120_000;
 
 let cachedAccessToken: string | null = null;
 let cachedTokenAt = 0;
@@ -137,5 +137,11 @@ export const api = {
     users: {
         getMe: () => api.get('/users/me'),
         getAll: () => api.get('/users'),
+    },
+
+    messages: {
+        getConversations: () => api.get('/messages'),
+        getForJob: (jobId: string) => api.get(`/messages/${jobId}`),
+        send: (jobId: string, text: string) => api.post(`/messages/${jobId}`, { text }),
     },
 };
