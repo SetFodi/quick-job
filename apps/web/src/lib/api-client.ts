@@ -144,4 +144,12 @@ export const api = {
         getForJob: (jobId: string) => api.get(`/messages/${jobId}`),
         send: (jobId: string, text: string) => api.post(`/messages/${jobId}`, { text }),
     },
+
+    reviews: {
+        submit: (jobId: string, rating: number, comment?: string) =>
+            api.post(`/reviews/${jobId}`, { rating, comment }),
+        getForJob: (jobId: string) => api.get(`/reviews/job/${jobId}`),
+        getForUser: (userId: string) => api.get(`/reviews/user/${userId}`),
+        hasReviewed: (jobId: string) => api.get(`/reviews/check/${jobId}`),
+    },
 };

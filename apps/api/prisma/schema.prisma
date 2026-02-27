@@ -71,6 +71,8 @@ model User {
   workerJobs      Job[]      @relation("WorkerJobs")
   proposals       Proposal[]
   messages        Message[]
+  reviewsGiven    Review[]   @relation("ReviewsGiven")
+  reviewsReceived Review[]   @relation("ReviewsReceived")
 
   @@map("users")
 }
@@ -107,6 +109,7 @@ model Job {
   milestones Milestone[]
   proposals  Proposal[]
   messages   Message[]
+  reviews    Review[]
 
   @@index([clientId])
   @@index([workerId])
@@ -165,6 +168,24 @@ model Transaction {
   @@index([milestoneId])
   @@index([type])
   @@map("transactions")
+}
+
+model Review {
+  id         String   @id @default(uuid()) @db.Uuid
+  jobId      String   @map("job_id") @db.Uuid
+  reviewerId String   @map("reviewer_id") @db.Uuid
+  revieweeId String   @map("reviewee_id") @db.Uuid
+  rating     Int
+  comment    String?  @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  job      Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  reviewer User @relation("ReviewsGiven", fields: [reviewerId], references: [id])
+  reviewee User @relation("ReviewsReceived", fields: [revieweeId], references: [id])
+
+  @@unique([jobId, reviewerId])
+  @@index([revieweeId])
+  @@map("reviews")
 }
 
 model Message {

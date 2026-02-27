@@ -6,7 +6,7 @@ import { useLang } from '@/lib/i18n';
 import Link from 'next/link';
 import {
     User, Briefcase, CheckCircle2, Send, TrendingUp,
-    Calendar, Mail, Shield, Loader2,
+    Calendar, Mail, Shield, Loader2, Star,
 } from 'lucide-react';
 
 type Profile = {
@@ -32,9 +32,24 @@ type MyJob = {
     clientId: string;
 };
 
+type UserReview = {
+    id: string;
+    rating: number;
+    comment: string | null;
+    reviewer: { fullName: string; role: string };
+    job: { title: string };
+};
+
+type ReviewData = {
+    averageRating: number | null;
+    totalReviews: number;
+    reviews: UserReview[];
+};
+
 type ProfileSnapshot = {
     profile: Profile | null;
     recentJobs: MyJob[];
+    reviewData: ReviewData | null;
     updatedAt: number;
     epoch: number;
 };
@@ -53,6 +68,7 @@ export default function ProfilePage() {
     const snap = validSnapshot();
     const [profile, setProfile] = useState<Profile | null>(snap?.profile ?? null);
     const [recentJobs, setRecentJobs] = useState<MyJob[]>(snap?.recentJobs ?? []);
+    const [reviewData, setReviewData] = useState<ReviewData | null>(snap?.reviewData ?? null);
     const [loading, setLoading] = useState(!snap);
     const [error, setError] = useState<string | null>(null);
 
@@ -65,9 +81,14 @@ export default function ProfilePage() {
             ]);
             if (meResult.status !== 'fulfilled') throw meResult.reason;
             const jobsPreview = jobsResult.status === 'fulfilled' ? jobsResult.value.slice(0, 5) : [];
-            profileSnapshot = { profile: meResult.value, recentJobs: jobsPreview, updatedAt: Date.now(), epoch: getCacheEpoch() };
+
+            let revData: ReviewData | null = null;
+            try { revData = await api.reviews.getForUser(meResult.value.id); } catch { }
+
+            profileSnapshot = { profile: meResult.value, recentJobs: jobsPreview, reviewData: revData, updatedAt: Date.now(), epoch: getCacheEpoch() };
             setProfile(meResult.value);
             setRecentJobs(jobsPreview);
+            setReviewData(revData);
             setError(null);
         } catch {
             setError(lang === 'ru' ? 'Не удалось загрузить профиль' : 'Failed to load profile');
@@ -115,7 +136,7 @@ export default function ProfilePage() {
                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gold/20 to-amber-600/10 border border-gold/20 flex items-center justify-center shrink-0">
                             <User size={22} className="text-gold" />
                         </div>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                             <h1 className="font-display text-lg font-bold truncate">{profile.fullName}</h1>
                             <div className="flex items-center gap-2 text-xs text-zinc-500 flex-wrap mt-0.5">
                                 <span className="flex items-center gap-1"><Mail size={11} />{profile.email}</span>
@@ -124,6 +145,17 @@ export default function ProfilePage() {
                                     {profile.role === 'CLIENT' ? (lang === 'ru' ? 'Заказчик' : 'Client') : profile.role === 'ADMIN' ? (lang === 'ru' ? 'Админ' : 'Admin') : (lang === 'ru' ? 'Исполнитель' : 'Worker')}
                                 </span>
                             </div>
+                            {reviewData && reviewData.averageRating !== null && (
+                                <div className="flex items-center gap-1.5 mt-2">
+                                    <div className="flex gap-0.5">
+                                        {[1, 2, 3, 4, 5].map((s) => (
+                                            <Star key={s} size={13} className={s <= Math.round(reviewData.averageRating!) ? 'text-gold fill-gold' : 'text-zinc-800'} />
+                                        ))}
+                                    </div>
+                                    <span className="text-xs font-bold text-gold">{reviewData.averageRating}</span>
+                                    <span className="text-[10px] text-zinc-600">({reviewData.totalReviews})</span>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -166,6 +198,38 @@ export default function ProfilePage() {
                         </div>
                     )}
                 </div>
+
+                {/* Reviews */}
+                {reviewData && reviewData.reviews.length > 0 && (
+                    <div className="space-y-2">
+                        <h2 className="font-display text-base font-bold flex items-center gap-2">
+                            <Star size={15} className="text-gold" />
+                            {lang === 'ru' ? 'Отзывы' : 'Reviews'}
+                            <span className="text-xs text-zinc-600 font-normal">({reviewData.totalReviews})</span>
+                        </h2>
+                        {reviewData.reviews.map((r) => (
+                            <div key={r.id} className="bg-surface border border-white/[0.04] rounded-xl p-3.5">
+                                <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <span className="text-sm font-semibold truncate">{r.reviewer.fullName}</span>
+                                        <span className="text-[10px] text-zinc-600">
+                                            {r.reviewer.role === 'CLIENT' ? (lang === 'ru' ? 'Заказчик' : 'Client') : (lang === 'ru' ? 'Исполнитель' : 'Worker')}
+                                        </span>
+                                    </div>
+                                    <div className="flex gap-0.5 shrink-0">
+                                        {[1, 2, 3, 4, 5].map((s) => (
+                                            <Star key={s} size={11} className={s <= r.rating ? 'text-gold fill-gold' : 'text-zinc-800'} />
+                                        ))}
+                                    </div>
+                                </div>
+                                {r.comment && <p className="text-xs text-zinc-500">{r.comment}</p>}
+                                <div className="text-[10px] text-zinc-700 mt-1 flex items-center gap-1">
+                                    <Briefcase size={9} />{r.job.title}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     );

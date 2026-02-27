@@ -16,6 +16,7 @@ function getAllowedOrigins() {
         'http://127.0.0.1:3000',
         'http://localhost:3100',
         'http://127.0.0.1:3100',
+        'http://192.168.100.5:3000',
     ];
 }
 

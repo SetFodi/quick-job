@@ -8,12 +8,13 @@ import { useLang } from '@/lib/i18n';
 import { toast } from 'sonner';
 import {
     ArrowLeft, CheckCircle2, Clock, Shield, Loader2, Send,
-    DollarSign, User, XCircle, Lock, Trash2, MessageCircle,
+    DollarSign, User, XCircle, Lock, Trash2, MessageCircle, Star,
 } from 'lucide-react';
 import Link from 'next/link';
 
 type Milestone = { id: string; title: string; amount: string; status: string; order: number };
 type Proposal = { id: string; workerId: string; proposedAmount: string; coverLetter: string | null; status: string; worker: { fullName: string } };
+type Review = { id: string; rating: number; comment: string | null; reviewer: { fullName: string; role: string } };
 type Job = {
     id: string; title: string; description: string; category: string;
     totalBudget: string; deadline: string | null; status: string;
@@ -37,6 +38,12 @@ export default function JobDetailPage() {
     const [coverLetter, setCoverLetter] = useState('');
     const [proposalSubmitting, setProposalSubmitting] = useState(false);
 
+    const [hasReviewed, setHasReviewed] = useState(false);
+    const [reviewRating, setReviewRating] = useState(0);
+    const [reviewComment, setReviewComment] = useState('');
+    const [reviewSubmitting, setReviewSubmitting] = useState(false);
+    const [jobReviews, setJobReviews] = useState<Review[]>([]);
+
     const err = (message: string | undefined, ru: string, en: string) => {
         if (!message) return lang === 'ru' ? ru : en;
         if (lang === 'ru' && /[A-Za-z]/.test(message) && !/[А-Яа-я]/.test(message)) return ru;
@@ -54,6 +61,17 @@ export default function JobDetailPage() {
         try { setProposals(await api.proposals.getForJob(jobId)); } catch { }
     }, [jobId]);
 
+    const fetchReviews = useCallback(async () => {
+        try {
+            const [reviewsData, checkData] = await Promise.all([
+                api.reviews.getForJob(jobId),
+                api.reviews.hasReviewed(jobId),
+            ]);
+            setJobReviews(reviewsData);
+            setHasReviewed(checkData.hasReviewed);
+        } catch { }
+    }, [jobId]);
+
     useEffect(() => {
         async function init() {
             const [sessionResult] = await Promise.all([
@@ -63,16 +81,33 @@ export default function JobDetailPage() {
             const { data: { session } } = sessionResult;
             if (session?.user?.id) setCurrentUserId(session.user.id);
             void fetchProposals();
+            void fetchReviews();
         }
         init();
-        const onFocus = () => { void fetchJob(); void fetchProposals(); };
+        const onFocus = () => { void fetchJob(); void fetchProposals(); void fetchReviews(); };
         window.addEventListener('focus', onFocus);
         return () => window.removeEventListener('focus', onFocus);
-    }, [fetchJob, fetchProposals]);
+    }, [fetchJob, fetchProposals, fetchReviews]);
 
     const isClient = currentUserId === job?.clientId;
     const isWorker = currentUserId === job?.workerId;
     const isVisitor = !isClient && !isWorker;
+
+    async function handleSubmitReview(e: React.FormEvent) {
+        e.preventDefault();
+        if (reviewRating < 1 || reviewSubmitting) return;
+        setReviewSubmitting(true);
+        try {
+            await api.reviews.submit(jobId, reviewRating, reviewComment || undefined);
+            toast.success(lang === 'ru' ? 'Отзыв оставлен!' : 'Review submitted!');
+            setHasReviewed(true);
+            setReviewRating(0);
+            setReviewComment('');
+            void fetchReviews();
+        } catch (e: any) {
+            toast.error(err(e?.message, 'Не удалось отправить отзыв', 'Failed to submit review'));
+        } finally { setReviewSubmitting(false); }
+    }
 
     async function handleSubmitProposal(e: React.FormEvent) {
         e.preventDefault();
@@ -284,6 +319,70 @@ export default function JobDetailPage() {
                         <CheckCircle2 size={32} className="text-gold mx-auto mb-2" />
                         <h3 className="font-display text-lg font-bold text-gold">{t('jobDetail.jobCompleted')}</h3>
                         <p className="text-zinc-400 text-sm mt-1">{t('jobDetail.allMilestonesDone')}</p>
+                    </div>
+                )}
+
+                {/* Review section — only on completed jobs for participants */}
+                {job.status === 'COMPLETED' && (isClient || isWorker) && (
+                    <div className="space-y-3">
+                        <h2 className="font-display text-base font-bold flex items-center gap-2">
+                            <Star size={16} className="text-gold" />
+                            {lang === 'ru' ? 'Отзывы' : 'Reviews'}
+                        </h2>
+
+                        {!hasReviewed && (
+                            <form onSubmit={handleSubmitReview} className="bg-surface border border-white/[0.04] rounded-xl p-4 space-y-3">
+                                <p className="text-sm text-zinc-400">
+                                    {lang === 'ru' ? 'Оцените работу:' : 'Rate your experience:'}
+                                </p>
+                                <div className="flex gap-1">
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                        <button key={star} type="button" onClick={() => setReviewRating(star)}
+                                            className="p-1 active:scale-110 transition-transform">
+                                            <Star size={28} className={star <= reviewRating ? 'text-gold fill-gold' : 'text-zinc-700'} />
+                                        </button>
+                                    ))}
+                                </div>
+                                <input
+                                    value={reviewComment}
+                                    onChange={(e) => setReviewComment(e.target.value)}
+                                    placeholder={lang === 'ru' ? 'Комментарий (необязательно)' : 'Comment (optional)'}
+                                    className={inputStyle}
+                                />
+                                <button type="submit" disabled={reviewSubmitting || reviewRating < 1}
+                                    className="w-full py-3 bg-gold text-black font-bold rounded-xl text-sm active:scale-95 disabled:opacity-40 flex items-center justify-center gap-2">
+                                    {reviewSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Star size={14} />}
+                                    {lang === 'ru' ? 'Оставить отзыв' : 'Submit Review'}
+                                </button>
+                            </form>
+                        )}
+
+                        {hasReviewed && (
+                            <div className="bg-surface border border-white/[0.04] rounded-xl p-4 text-center text-emerald-400 text-sm flex items-center justify-center gap-2">
+                                <CheckCircle2 size={14} />
+                                {lang === 'ru' ? 'Вы уже оставили отзыв' : 'You already left a review'}
+                            </div>
+                        )}
+
+                        {jobReviews.length > 0 && (
+                            <div className="space-y-2">
+                                {jobReviews.map((review) => (
+                                    <div key={review.id} className="bg-surface border border-white/[0.04] rounded-xl p-4">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="font-semibold text-sm">{review.reviewer.fullName}</span>
+                                            <div className="flex gap-0.5">
+                                                {[1, 2, 3, 4, 5].map((s) => (
+                                                    <Star key={s} size={12} className={s <= review.rating ? 'text-gold fill-gold' : 'text-zinc-800'} />
+                                                ))}
+                                            </div>
+                                        </div>
+                                        {review.comment && (
+                                            <p className="text-xs text-zinc-500 mt-1">{review.comment}</p>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
